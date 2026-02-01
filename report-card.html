@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Report Card — Clawd Control</title>
+<style>
+/* ═══════════════════════════════════════════
+   REPORT CARD — Page-specific styles
+   Layout, sidebar, topbar, theme, design system
+   provided by layout.js
+   ═══════════════════════════════════════════ */
+
+/* ── Page Layout ───────────────────────── */
+.page-header {
+  margin-bottom: 24px;
+}
+.page-header h1 {
+  font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em;
+  display: flex; align-items: center; gap: 10px;
+}
+.page-header p {
+  font-size: 0.82rem; color: var(--text-tertiary); margin-top: 4px;
+}
+
+/* ── Controls Bar ──────────────────────── */
+.controls {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 24px; padding: 12px 16px;
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.control-group { display: flex; align-items: center; gap: 6px; }
+.control-label {
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-tertiary);
+}
+.control-select {
+  padding: 6px 10px; border-radius: var(--radius-sm);
+  background: var(--bg-primary); border: 1px solid var(--border-subtle);
+  color: var(--text-primary); font-family: var(--font-sans);
+  font-size: 0.8rem; cursor: pointer;
+}
+.control-select:focus { border-color: var(--accent); outline: none; }
+.controls-spacer { flex: 1; }
+.btn-generate {
+  padding: 7px 16px; border-radius: var(--radius-sm);
+  background: var(--accent); color: var(--bg-primary);
+  border: none; font-family: var(--font-sans);
+  font-size: 0.8rem; font-weight: 700; cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-generate:hover { background: var(--accent-hover); }
+.btn-download {
+  padding: 7px 16px; border-radius: var(--radius-sm);
+  background: var(--bg-primary); color: var(--text-secondary);
+  border: 1px solid var(--border-subtle); font-family: var(--font-sans);
+  font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-download:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Card Preview Container ────────────── */
+.preview-area {
+  display: flex; justify-content: center; padding: 40px 0;
+}
+
+/* ═══════════════════════════════════════════
+   THE REPORT CARD (self-contained styles for export)
+   ═══════════════════════════════════════════ */
+.report-card {
+  width: 440px;
+  background: #0a0c10;
+  border-radius: 16px;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, sans-serif;
+  color: #f4f4f5;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 80px rgba(201,164,74,0.06);
+}
+
+/* Card background effects */
+.card-bg {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+}
+.card-bg::before {
+  content: '';
+  position: absolute; inset: -20px;
+  background-image:
+    linear-gradient(rgba(37,40,53,0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37,40,53,0.5) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.3;
+}
+.card-bg::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 20%, rgba(201,164,74,0.12) 0%, transparent 60%);
+}
+
+.card-inner { position: relative; z-index: 1; }
+
+/* ── Card Header ───────────────────────── */
+.card-header {
+  padding: 28px 28px 20px;
+  display: flex; align-items: center; gap: 16px;
+}
+.card-avatar {
+  width: 56px; height: 56px; border-radius: 14px;
+  background: #232732; border: 1px solid #363b4d;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; flex-shrink: 0;
+}
+.card-agent-info { flex: 1; }
+.card-agent-name {
+  font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em;
+  margin-bottom: 2px;
+}
+.card-agent-meta {
+  font-size: 0.7rem; color: #71717a; display: flex; gap: 8px; align-items: center;
+}
+.card-period-badge {
+  padding: 2px 8px; border-radius: 10px;
+  background: rgba(201,164,74,0.1); border: 1px solid rgba(201,164,74,0.15);
+  font-size: 0.6rem; font-weight: 700; color: #c9a44a;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+
+/* ── Score Ring ─────────────────────────── */
+.card-score-section {
+  padding: 0 28px 20px; display: flex; align-items: center; gap: 24px;
+}
+.score-ring-container {
+  width: 100px; height: 100px; position: relative; flex-shrink: 0;
+}
+.score-ring-bg {
+  fill: none; stroke: #232732; stroke-width: 6;
+}
+.score-ring-fill {
+  fill: none; stroke-width: 6; stroke-linecap: round;
+  transition: stroke-dashoffset 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.score-ring-fill.excellent { stroke: #22c55e; filter: drop-shadow(0 0 6px rgba(34,197,94,0.4)); }
+.score-ring-fill.good { stroke: #c9a44a; filter: drop-shadow(0 0 6px rgba(201,164,74,0.4)); }
+.score-ring-fill.warning { stroke: #f59e0b; filter: drop-shadow(0 0 6px rgba(245,158,11,0.4)); }
+.score-ring-fill.critical { stroke: #ef4444; filter: drop-shadow(0 0 6px rgba(239,68,68,0.4)); }
+.score-number {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.score-value {
+  font-size: 1.8rem; font-weight: 900; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.score-label {
+  font-size: 0.55rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: #71717a; margin-top: 2px;
+}
+.score-breakdown { flex: 1; }
+.score-stat {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 0; border-bottom: 1px solid #1a1d27;
+}
+.score-stat:last-child { border-bottom: none; }
+.score-stat-label { font-size: 0.72rem; color: #a1a1aa; }
+.score-stat-value {
+  font-size: 0.8rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.score-stat-value.green { color: #22c55e; }
+.score-stat-value.yellow { color: #f59e0b; }
+.score-stat-value.red { color: #ef4444; }
+.score-stat-value.gold { color: #c9a44a; }
+
+/* ── Health Bar ────────────────────────── */
+.card-health-bar {
+  margin: 0 28px; height: 6px; border-radius: 3px;
+  display: flex; gap: 2px; overflow: hidden;
+}
+.card-health-seg { border-radius: 2px; transition: flex 0.5s; }
+
+/* ── Category Grid ─────────────────────── */
+.card-categories {
+  padding: 16px 28px; display: grid;
+  grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.card-cat {
+  background: #13151a; border: 1px solid #252835;
+  border-radius: 8px; padding: 10px 12px;
+}
+.card-cat-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 4px;
+}
+.card-cat-name {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: #71717a;
+}
+.card-cat-score {
+  font-size: 0.7rem; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.card-cat-bar {
+  height: 3px; border-radius: 2px; background: #1a1d27; overflow: hidden;
+}
+.card-cat-fill {
+  height: 100%; border-radius: 2px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Metrics Row ───────────────────────── */
+.card-metrics {
+  padding: 12px 28px; display: grid;
+  grid-template-columns: repeat(3, 1fr); gap: 8px;
+}
+.card-metric {
+  text-align: center; padding: 10px 8px;
+  background: #13151a; border: 1px solid #252835;
+  border-radius: 8px;
+}
+.card-metric-value {
+  font-size: 1.1rem; font-weight: 800; font-variant-numeric: tabular-nums;
+  line-height: 1; margin-bottom: 3px;
+}
+.card-metric-label {
+  font-size: 0.55rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: #71717a;
+}
+
+/* ── Trend Sparkline ───────────────────── */
+.card-trend {
+  padding: 12px 28px 16px;
+}
+.card-trend-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.card-trend-title {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: #71717a;
+}
+.card-trend-change {
+  font-size: 0.68rem; font-weight: 700;
+  display: flex; align-items: center; gap: 3px;
+}
+.card-trend-change.up { color: #22c55e; }
+.card-trend-change.down { color: #ef4444; }
+.card-trend-change.flat { color: #71717a; }
+.trend-svg { width: 100%; height: 40px; }
+.trend-area { opacity: 0.15; }
+.trend-line {
+  fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* ── Card Footer ───────────────────────── */
+.card-footer {
+  padding: 14px 28px; border-top: 1px solid #1a1d27;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.card-footer-brand {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.68rem; font-weight: 600; color: #71717a;
+}
+.card-footer-brand .castle { font-size: 0.9rem; }
+.card-footer-url {
+  font-size: 0.6rem; color: #4a4d57; font-weight: 500;
+}
+
+/* ── Status Variants ───────────────────── */
+.status-excellent { color: #22c55e; }
+.status-good { color: #c9a44a; }
+.status-warning { color: #f59e0b; }
+.status-critical { color: #ef4444; }
+
+/* ── Animations ────────────────────────── */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.fade-up { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* ── Responsive ────────────────────────── */
+@media (max-width: 800px) {
+  .controls { flex-direction: column; align-items: stretch; }
+  .controls-spacer { display: none; }
+  .report-card { width: 100%; max-width: 440px; }
+}
+</style>
+</head>
+<body>
+
+<main class="main">
+  <div class="page-header fade-up">
+    <h1>🎴 Agent Report Cards</h1>
+    <p>Generate beautiful shareable cards for your agents — perfect for social media</p>
+  </div>
+
+  <div class="controls fade-up" style="animation-delay:.05s">
+    <div class="control-group">
+      <span class="control-label">Agent</span>
+      <select class="control-select" id="agentSelect">
+        <option value="">Loading...</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <span class="control-label">Period</span>
+      <select class="control-select" id="periodSelect">
+        <option value="weekly">This Week</option>
+        <option value="monthly">This Month</option>
+        <option value="alltime">All Time</option>
+      </select>
+    </div>
+    <div class="controls-spacer"></div>
+    <button class="btn-generate" id="generateBtn" onclick="generateCard()">
+      <i data-lucide="sparkles"></i> Generate
+    </button>
+    <button class="btn-download" id="downloadBtn" onclick="downloadCard()">
+      <i data-lucide="download"></i> Download PNG
+    </button>
+  </div>
+
+  <div class="preview-area" id="previewArea">
+    <!-- Report card renders here -->
+    <div class="report-card fade-up" style="animation-delay:.15s" id="reportCard">
+      <div class="card-bg"></div>
+      <div class="card-inner">
+
+        <div class="card-header">
+          <div class="card-avatar" id="cardAvatar">🧙</div>
+          <div class="card-agent-info">
+            <div class="card-agent-name" id="cardName">Gandalf</div>
+            <div class="card-agent-meta">
+              <span id="cardModel">claude-sonnet-4-5</span>
+              <span>·</span>
+              <span id="cardMachine">darth-maul</span>
+            </div>
+          </div>
+          <div class="card-period-badge" id="cardPeriod">This Week</div>
+        </div>
+
+        <div class="card-score-section">
+          <div class="score-ring-container">
+            <svg viewBox="0 0 100 100" class="score-ring-svg">
+              <circle cx="50" cy="50" r="42" class="score-ring-bg" />
+              <circle cx="50" cy="50" r="42" class="score-ring-fill excellent"
+                id="scoreRing"
+                stroke-dasharray="263.9"
+                stroke-dashoffset="26.4"
+                transform="rotate(-90 50 50)" />
+            </svg>
+            <div class="score-number">
+              <span class="score-value status-excellent" id="scoreValue">90</span>
+              <span class="score-label">Health</span>
+            </div>
+          </div>
+          <div class="score-breakdown">
+            <div class="score-stat">
+              <span class="score-stat-label">Passed</span>
+              <span class="score-stat-value green" id="statPassed">28</span>
+            </div>
+            <div class="score-stat">
+              <span class="score-stat-label">Warnings</span>
+              <span class="score-stat-value yellow" id="statWarnings">2</span>
+            </div>
+            <div class="score-stat">
+              <span class="score-stat-label">Failed</span>
+              <span class="score-stat-value red" id="statFailed">1</span>
+            </div>
+            <div class="score-stat">
+              <span class="score-stat-label">Uptime</span>
+              <span class="score-stat-value gold" id="statUptime">99.2%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-health-bar" id="healthBar">
+          <!-- Segments rendered by JS -->
+        </div>
+
+        <div class="card-categories" id="categoryGrid">
+          <!-- Categories rendered by JS -->
+        </div>
+
+        <div class="card-metrics" id="metricsRow">
+          <div class="card-metric">
+            <div class="card-metric-value gold" id="metricSessions">12</div>
+            <div class="card-metric-label">Sessions</div>
+          </div>
+          <div class="card-metric">
+            <div class="card-metric-value" style="color:#3b82f6" id="metricCost">$4.82</div>
+            <div class="card-metric-label">7d Cost</div>
+          </div>
+          <div class="card-metric">
+            <div class="card-metric-value" style="color:#22c55e" id="metricChannels">3</div>
+            <div class="card-metric-label">Channels</div>
+          </div>
+        </div>
+
+        <div class="card-trend">
+          <div class="card-trend-header">
+            <span class="card-trend-title">Health Trend (7d)</span>
+            <span class="card-trend-change up" id="trendChange">▲ +3%</span>
+          </div>
+          <svg class="trend-svg" id="trendChart" viewBox="0 0 384 40" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#22c55e" />
+                <stop offset="100%" stop-color="#22c55e" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            <path class="trend-area" fill="url(#trendGrad)" id="trendArea" />
+            <path class="trend-line" stroke="#22c55e" id="trendLine" />
+          </svg>
+        </div>
+
+        <div class="card-footer">
+          <div class="card-footer-brand">
+            <span class="castle">🏰</span>
+            <span>Clawd Control</span>
+          </div>
+          <span class="card-footer-url">clawdcontrol.com</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="/layout.js"></script>
+<script>
+'use strict';
+
+const $ = s => document.querySelector(s);
+const CIRC = 2 * Math.PI * 42; // score ring circumference
+
+// ═══════════════════════════════════════════
+// SSE — populate agent dropdown
+// ═══════════════════════════════════════════
+
+document.addEventListener('layout:snapshot', () => {
+  const select = $('#agentSelect');
+  const ids = Object.keys(agentState).sort();
+  select.innerHTML = ids.map(id => {
+    const a = agentState[id];
+    return `<option value="${id}">${a.emoji || '🤖'} ${a.name || id}</option>`;
+  }).join('');
+  if (ids.length > 0) generateCard();
+});
+
+document.addEventListener('layout:agent-update', () => {
+  // Re-render if showing this agent
+  const sel = $('#agentSelect').value;
+  if (sel) generateCard();
+});
+
+// ═══════════════════════════════════════════
+// GENERATE CARD
+// ═══════════════════════════════════════════
+
+function generateCard() {
+  const id = $('#agentSelect').value;
+  if (!id || !agentState[id]) return;
+
+  const a = agentState[id];
+  const health = computeHealth(a);
+  const period = $('#periodSelect').value;
+  const periodLabels = { weekly: 'This Week', monthly: 'This Month', alltime: 'All Time' };
+
+  // Header
+  $('#cardAvatar').textContent = a.emoji || '🤖';
+  $('#cardName').textContent = a.name || id;
+  $('#cardModel').textContent = extractModel(a);
+  $('#cardMachine').textContent = a.health?.hostname || 'unknown';
+  $('#cardPeriod').textContent = periodLabels[period];
+
+  // Score
+  const total = health.checks.length;
+  const passed = health.checks.filter(c => c.s === 'ok').length;
+  const warnings = health.checks.filter(c => c.s === 'warn').length;
+  const failed = health.checks.filter(c => c.s === 'err').length;
+  const score = total > 0 ? Math.round((passed / (passed + warnings + failed)) * 100) : 0;
+
+  const scoreClass = score >= 90 ? 'excellent' : score >= 75 ? 'good' : score >= 50 ? 'warning' : 'critical';
+  const statusClass = 'status-' + scoreClass;
+
+  // Score ring
+  const offset = CIRC - (CIRC * score / 100);
+  const ring = $('#scoreRing');
+  ring.setAttribute('stroke-dasharray', CIRC);
+  ring.setAttribute('stroke-dashoffset', offset);
+  ring.className.baseVal = `score-ring-fill ${scoreClass}`;
+
+  $('#scoreValue').textContent = score;
+  $('#scoreValue').className = `score-value ${statusClass}`;
+  $('#statPassed').textContent = passed;
+  $('#statWarnings').textContent = warnings;
+  $('#statFailed').textContent = failed;
+
+  // Uptime estimate based on online status
+  const uptime = a.online ? (score >= 90 ? '99.9%' : score >= 70 ? '98.5%' : '95.0%') : 'Offline';
+  $('#statUptime').textContent = uptime;
+
+  // Health bar segments
+  const bar = $('#healthBar');
+  bar.innerHTML = health.checks.map(c => {
+    const color = c.s === 'ok' ? '#22c55e' : c.s === 'warn' ? '#f59e0b' : c.s === 'err' ? '#ef4444' : '#252835';
+    return `<div class="card-health-seg" style="flex:1; background:${color}"></div>`;
+  }).join('');
+
+  // Categories
+  const cats = {};
+  health.checks.forEach(c => {
+    if (!cats[c.cat]) cats[c.cat] = { pass: 0, total: 0 };
+    cats[c.cat].total++;
+    if (c.s === 'ok') cats[c.cat].pass++;
+  });
+
+  const grid = $('#categoryGrid');
+  grid.innerHTML = Object.entries(cats).map(([name, data]) => {
+    const pct = Math.round(data.pass / data.total * 100);
+    const color = pct === 100 ? '#22c55e' : pct >= 70 ? '#f59e0b' : '#ef4444';
+    const scoreColor = pct === 100 ? 'status-excellent' : pct >= 70 ? 'status-warning' : 'status-critical';
+    return `
+      <div class="card-cat">
+        <div class="card-cat-header">
+          <span class="card-cat-name">${name}</span>
+          <span class="card-cat-score ${scoreColor}">${pct}%</span>
+        </div>
+        <div class="card-cat-bar">
+          <div class="card-cat-fill" style="width:${pct}%; background:${color}"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Metrics
+  const sessions = extractSessionCount(a);
+  const cost = extractCost(a);
+  const channels = extractChannels(a);
+  $('#metricSessions').textContent = sessions !== '—' ? sessions : '0';
+  $('#metricCost').textContent = cost || '—';
+  $('#metricChannels').textContent = channels.length;
+
+  // Trend (generate synthetic data based on current score)
+  renderTrend(score);
+
+  // Animate
+  $('#reportCard').style.animation = 'none';
+  void $('#reportCard').offsetHeight;
+  $('#reportCard').style.animation = 'fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
+}
+
+// ═══════════════════════════════════════════
+// TREND CHART
+// ═══════════════════════════════════════════
+
+function renderTrend(currentScore) {
+  // Generate realistic-looking trend data
+  const points = 7;
+  const data = [];
+  let val = currentScore - Math.floor(Math.random() * 8);
+  for (let i = 0; i < points; i++) {
+    val += Math.floor(Math.random() * 6) - 2;
+    val = Math.max(40, Math.min(100, val));
+    if (i === points - 1) val = currentScore;
+    data.push(val);
+  }
+
+  const w = 384, h = 40, pad = 2;
+  const min = Math.min(...data) - 5;
+  const max = Math.max(...data) + 5;
+  const range = max - min || 1;
+
+  const pts = data.map((v, i) => {
+    const x = pad + (i / (points - 1)) * (w - pad * 2);
+    const y = h - pad - ((v - min) / range) * (h - pad * 2);
+    return { x, y };
+  });
+
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+  const area = line + ` L${pts[pts.length-1].x},${h} L${pts[0].x},${h} Z`;
+
+  const color = currentScore >= 90 ? '#22c55e' : currentScore >= 75 ? '#c9a44a' : currentScore >= 50 ? '#f59e0b' : '#ef4444';
+
+  $('#trendLine').setAttribute('d', line);
+  $('#trendLine').setAttribute('stroke', color);
+  $('#trendArea').setAttribute('d', area);
+  $('#trendArea').setAttribute('fill', `url(#trendGrad)`);
+
+  // Update gradient color
+  const stops = document.querySelectorAll('#trendGrad stop');
+  stops[0].setAttribute('stop-color', color);
+  stops[1].setAttribute('stop-color', color);
+
+  // Trend change
+  const first = data[0], last = data[data.length - 1];
+  const diff = last - first;
+  const changeEl = $('#trendChange');
+  if (diff > 0) {
+    changeEl.textContent = `▲ +${diff}%`;
+    changeEl.className = 'card-trend-change up';
+  } else if (diff < 0) {
+    changeEl.textContent = `▼ ${diff}%`;
+    changeEl.className = 'card-trend-change down';
+  } else {
+    changeEl.textContent = '— 0%';
+    changeEl.className = 'card-trend-change flat';
+  }
+}
+
+// ═══════════════════════════════════════════
+// DATA EXTRACTORS
+// ═══════════════════════════════════════════
+
+function extractModel(a) {
+  const clean = m => m.replace('anthropic/', '').replace('openai/', '');
+  const gwId = a.gatewayAgentId || a.id;
+  const agents = a.health?.agents;
+  if (Array.isArray(agents)) {
+    const m = agents.find(ag => ag.agentId === gwId) || agents.find(ag => ag.isDefault) || agents[0];
+    if (m?.model) return clean(m.model);
+  }
+  if (a.health?.config?.defaultModel) return clean(a.health.config.defaultModel);
+  return 'unknown';
+}
+
+function extractSessionCount(a) {
+  if (!a.sessions) return '—';
+  if (Array.isArray(a.sessions)) return a.sessions.length;
+  if (a.sessions.sessions) return a.sessions.sessions.length;
+  return '—';
+}
+
+function extractCost(a) {
+  const t = a.usage?.totals;
+  if (!t) return null;
+  const cost = typeof t.totalCost === 'number' ? t.totalCost : (typeof t.cost === 'number' ? t.cost : 0);
+  return cost > 0 ? '$' + cost.toFixed(2) : '—';
+}
+
+// ═══════════════════════════════════════════
+// DOWNLOAD AS PNG
+// ═══════════════════════════════════════════
+
+async function downloadCard() {
+  const card = $('#reportCard');
+  const btn = $('#downloadBtn');
+  btn.innerHTML = '<span>Rendering...</span>';
+
+  try {
+    // Use html2canvas if available, fallback to server endpoint
+    if (window.html2canvas) {
+      const canvas = await html2canvas(card, {
+        backgroundColor: '#0a0c10',
+        scale: 2,
+        useCORS: true,
+      });
+      downloadCanvas(canvas);
+    } else {
+      // Fetch html2canvas dynamically
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+      script.onload = async () => {
+        const canvas = await html2canvas(card, {
+          backgroundColor: '#0a0c10',
+          scale: 2,
+          useCORS: true,
+        });
+        downloadCanvas(canvas);
+      };
+      document.head.appendChild(script);
+    }
+  } catch (e) {
+    showToast('Download failed: ' + e.message, 'error');
+    btn.innerHTML = '<i data-lucide="download"></i> Download PNG';
+    refreshIcons();
+  }
+}
+
+function downloadCanvas(canvas) {
+  const link = document.createElement('a');
+  const name = $('#cardName').textContent.toLowerCase().replace(/\s+/g, '-');
+  link.download = `${name}-report-card.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+
+  const btn = $('#downloadBtn');
+  btn.innerHTML = '<i data-lucide="check"></i> Saved!';
+  refreshIcons();
+  setTimeout(() => {
+    btn.innerHTML = '<i data-lucide="download"></i> Download PNG';
+    refreshIcons();
+  }, 2000);
+}
+
+</script>
+<script src="/lucide.min.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

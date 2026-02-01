@@ -28,11 +28,13 @@
       ? 'dashboard'
       : path === '/create.html'
         ? 'create'
-        : path.startsWith('/agent/')
-          ? 'agent-detail'
-          : path === '/gandalf-view.html'
-            ? 'gandalf'
-            : 'other';
+        : path === '/report-card.html'
+          ? 'report-card'
+          : path.startsWith('/agent/')
+            ? 'agent-detail'
+            : path === '/gandalf-view.html'
+              ? 'gandalf'
+              : 'other';
   const activeAgentId =
     activePage === 'agent-detail'
       ? decodeURIComponent(path.split('/').filter(Boolean).pop())
@@ -422,6 +424,12 @@ body.sidebar-collapsed .topbar { grid-column: 1 / -1; }
           Connecting…
         </div>
       </div>
+
+      <div class="sidebar-section">Tools</div>
+      <a href="/report-card.html" class="nav-item${isActive('report-card')}">
+        <i data-lucide="id-card" class="nav-icon"></i>
+        <span class="nav-label">Report Cards</span>
+      </a>
 
       <div class="sidebar-section">Actions</div>
       <a href="/create.html" class="nav-item${isActive('create')}">
