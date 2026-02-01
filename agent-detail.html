@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Detail — Clawd Control</title>
+<style>
+
+  /* Hero Section */
+  .hero {
+    padding: 32px 32px 28px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .hero-emoji { font-size: 3.5rem; line-height: 1; }
+  .hero-info { flex: 1; }
+  .hero-info h1 { 
+    font-size: 28px; 
+    font-weight: 700; 
+    color: var(--text-primary); 
+    letter-spacing: -0.4px; 
+    margin-bottom: 8px;
+  }
+  .hero-meta { 
+    display: flex; 
+    gap: 12px; 
+    font-size: 13px; 
+    color: var(--text-secondary); 
+    flex-wrap: wrap; 
+    align-items: center;
+  }
+  .hero-meta .tag {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .tag-online { background: rgba(34, 197, 94, 0.12); color: var(--success); }
+  .tag-offline { background: rgba(239, 68, 68, 0.12); color: var(--error); }
+  .tag-model { background: rgba(201, 164, 74, 0.12); color: var(--accent); }
+  .tag-machine { background: rgba(161, 161, 170, 0.12); color: var(--text-secondary); }
+
+  /* Container */
+  .container { 
+    max-width: 1200px; 
+    margin: 0 auto; 
+    padding: 32px; 
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border-subtle);
+    margin-bottom: 32px;
+  }
+  .tab {
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tab:hover { color: var(--text-primary); }
+  .tab.active { 
+    color: var(--accent); 
+    border-bottom-color: var(--accent);
+  }
+
+  /* Tab Content */
+  .tab-content { 
+    display: none; 
+    animation: fadeIn 250ms ease;
+  }
+  .tab-content.active { display: block; }
+  @keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(4px); } 
+    to { opacity: 1; transform: translateY(0); } 
+  }
+
+  /* Panel */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .panel h2 {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+  }
+  .panel h2 .icon { opacity: 0.8; }
+
+  /* Markdown Content */
+  .md-content {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    padding: 16px;
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid var(--border-subtle);
+  }
+  .md-content::-webkit-scrollbar { width: 6px; }
+  .md-content::-webkit-scrollbar-track { background: var(--bg-primary); }
+  .md-content::-webkit-scrollbar-thumb { 
+    background: var(--border); 
+    border-radius: 3px; 
+  }
+  .md-content::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+  /* Summary Grid */
+  .summary-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+    gap: 16px; 
+    margin-bottom: 24px; 
+  }
+  .summary-card { 
+    background: var(--bg-secondary); 
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px; 
+    padding: 20px; 
+  }
+  .summary-card .label { 
+    font-size: 11px; 
+    font-weight: 700; 
+    text-transform: uppercase; 
+    letter-spacing: 0.8px; 
+    color: var(--text-tertiary); 
+    margin-bottom: 8px; 
+  }
+  .summary-card .value { 
+    font-size: 24px; 
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .summary-card .sub { 
+    font-size: 12px; 
+    color: var(--text-secondary); 
+  }
+
+  /* Skill Item */
+  .skill-item {
+    padding: 14px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .skill-item:hover { border-color: var(--border); }
+  .skill-name { 
+    font-weight: 600; 
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+  .skill-desc { 
+    font-size: 12px; 
+    color: var(--text-secondary); 
+    margin-top: 4px; 
+  }
+
+  /* File List */
+  .file-list { list-style: none; }
+  .file-item {
+    padding: 10px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 13px;
+  }
+  .file-item:last-child { border-bottom: none; }
+  .file-name { 
+    font-weight: 600; 
+    color: var(--accent);
+    font-family: 'SF Mono', 'Consolas', monospace;
+  }
+  .file-meta { 
+    color: var(--text-secondary); 
+    font-size: 12px; 
+  }
+
+  /* Session Row */
+  .session-row {
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .session-key { 
+    font-family: 'SF Mono', 'Consolas', monospace; 
+    font-size: 13px; 
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .session-info { 
+    display: flex; 
+    gap: 16px; 
+    font-size: 12px; 
+    color: var(--text-secondary); 
+  }
+
+  /* Controls */
+  .controls-row { 
+    display: flex; 
+    gap: 12px; 
+    flex-wrap: wrap; 
+  }
+  .ctrl-btn {
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-family: var(--font);
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ctrl-btn:hover { 
+    border-color: var(--accent); 
+    color: var(--accent); 
+    background: var(--bg-secondary);
+  }
+  .ctrl-btn.danger { color: var(--error); }
+  .ctrl-btn.danger:hover { 
+    border-color: var(--error); 
+    background: rgba(239, 68, 68, 0.08);
+  }
+  .ctrl-btn.success { color: var(--success); }
+  .ctrl-btn.success:hover { 
+    border-color: var(--success); 
+    background: rgba(34, 197, 94, 0.08);
+  }
+
+  /* Empty State */
+  .empty { 
+    color: var(--text-secondary); 
+    font-size: 13px; 
+    font-style: italic; 
+    padding: 16px; 
+    text-align: center;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    padding: 14px 24px;
+    background: var(--surface);
+    border: 1px solid var(--success);
+    border-radius: 10px;
+    font-size: 14px;
+    z-index: 100;
+    color: var(--success);
+    animation: slideIn 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    font-weight: 500;
+  }
+  .toast.error { 
+    border-color: var(--error); 
+    color: var(--error); 
+  }
+  @keyframes slideIn { 
+    from { opacity: 0; transform: translateY(16px); } 
+    to { opacity: 1; transform: translateY(0); } 
+  }
+
+  /* Loading */
+  .loading { 
+    text-align: center; 
+    padding: 80px; 
+    color: var(--text-secondary); 
+    font-size: 14px; 
+  }
+
+  /* Lucide Icons */
+  .lucide, [data-lucide] { 
+    width: 1em; 
+    height: 1em; 
+    display: inline-block; 
+    vertical-align: -0.125em; 
+    flex-shrink: 0; 
+  }
+  .tab .lucide { 
+    width: 16px; 
+    height: 16px; 
+  }
+  .panel h2 .lucide { 
+    width: 14px; 
+    height: 14px; 
+    opacity: 0.8; 
+  }
+  .ctrl-btn .lucide { 
+    width: 16px; 
+    height: 16px; 
+  }
+  /* Spinner */
+  .lucide-spin { 
+    animation: spin 1s linear infinite; 
+  }
+  @keyframes spin { 
+    to { transform: rotate(360deg); } 
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .hero { 
+      padding: 24px 20px; 
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .hero-emoji { font-size: 2.5rem; }
+    .container { padding: 20px; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    .tabs { overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+<main class="main">
+
+<div class="hero" id="hero">
+  <div class="loading">Loading agent...</div>
+</div>
+
+<div class="container">
+  <div class="tabs" id="tabs"></div>
+  <div id="tabContent"></div>
+</div>
+
+<script>
+const agentId = window.location.pathname.split('/').pop();
+let data = null;
+
+async function load() {
+  try {
+    const res = await fetch(`/api/agents/${agentId}/detail`);
+    if (!res.ok) throw new Error('Agent not found');
+    data = await res.json();
+    render();
+  } catch (e) {
+    document.getElementById('hero').innerHTML = `<div class="loading">❌ ${e.message}</div>`;
+  }
+}
+
+function render() {
+  const d = data;
+  const cfg = d.config;
+  const ws = d.workspace;
+  const live = d.live || {};
+  const online = live.online;
+
+  // Hero
+  document.title = `${cfg.emoji} ${cfg.name} — Clawd Control`;
+  document.getElementById('hero').innerHTML = `
+    <div class="hero-emoji">${cfg.emoji}</div>
+    <div class="hero-info">
+      <h1>${cfg.name}</h1>
+      <div class="hero-meta">
+        <span class="tag ${online ? 'tag-online' : 'tag-offline'}">${online ? '● Online' : '○ Offline'}</span>
+        <span class="tag tag-model">${(live.health?.config?.defaultModel || cfg.model || '').replace('anthropic/', '')}</span>
+        <span class="tag tag-machine">${cfg.machine}</span>
+        <span style="color:var(--text-tertiary)">${cfg.workspace}</span>
+      </div>
+    </div>
+  `;
+
+  // Build tabs
+  const tabs = [
+    { id: 'overview', icon: 'layout-dashboard', label: 'Overview' },
+    { id: 'soul', icon: 'brain', label: 'Soul & Identity' },
+    { id: 'skills', icon: 'wrench', label: 'Skills' },
+    { id: 'memory', icon: 'database', label: 'Memory' },
+    { id: 'tasks', icon: 'clipboard-list', label: 'Tasks' },
+    { id: 'sessions', icon: 'message-square', label: 'Sessions' },
+    { id: 'security', icon: 'shield-check', label: 'Security' },
+    { id: 'controls', icon: 'settings', label: 'Controls' },
+  ];
+
+  document.getElementById('tabs').innerHTML = tabs.map((t, i) =>
+    `<div class="tab ${i === 0 ? 'active' : ''}" onclick="switchTab('${t.id}')"><i data-lucide="${t.icon}"></i> ${t.label}</div>`
+  ).join('');
+
+  document.getElementById('tabContent').innerHTML = tabs.map((t, i) =>
+    `<div class="tab-content ${i === 0 ? 'active' : ''}" id="tab-${t.id}">${renderTab(t.id)}</div>`
+  ).join('');
+  refreshIcons();
+}
+
+function renderTab(id) {
+  const d = data;
+  const ws = d.workspace;
+  const live = d.live || {};
+
+  switch (id) {
+    case 'overview': return renderOverview();
+    case 'soul': return renderSoul();
+    case 'skills': return renderSkills();
+    case 'memory': return renderMemory();
+    case 'tasks': return renderTasks();
+    case 'sessions': return renderSessions();
+    case 'security': return renderSecurity();
+    case 'controls': return renderControls();
+    default: return '<div class="empty">Not found</div>';
+  }
+}
+
+function renderOverview() {
+  const live = data.live || {};
+  const ws = data.workspace;
+  const sessions = live.sessions?.sessions || [];
+  const usage = live.usage?.totals;
+
+  // Parse soul for a one-liner
+  let soulSummary = '(no soul defined)';
+  if (ws.soul) {
+    const match = ws.soul.match(/\*You are .+?\.\s*(.+?)\*/);
+    if (match) soulSummary = match[1].substring(0, 120);
+    else {
+      const firstLine = ws.soul.split('\n').find(l => l.trim() && !l.startsWith('#'));
+      if (firstLine) soulSummary = firstLine.substring(0, 120);
+    }
+  }
+
+  // Count tasks
+  let taskCounts = { inbox: 0, progress: 0, done: 0 };
+  if (ws.tasks) {
+    taskCounts.inbox = (ws.tasks.match(/- \[ \]/g) || []).length;
+    taskCounts.done = (ws.tasks.match(/- \[x\]/gi) || []).length;
+  }
+
+  return `
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="label">Status</div>
+        <div class="value">${live.online ? '🟢 Online' : '🔴 Offline'}</div>
+        <div class="sub">${live.lastSeen ? 'Last seen ' + timeAgo(live.lastSeen) : 'Never seen'}</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Sessions</div>
+        <div class="value">${sessions.length}</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Skills</div>
+        <div class="value">${data.skills.length}</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Memory Files</div>
+        <div class="value">${data.memoryFiles.length}</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Open Tasks</div>
+        <div class="value">${taskCounts.inbox}</div>
+        <div class="sub">${taskCounts.done} completed</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2><i data-lucide="quote"></i> Soul Summary</h2>
+      <p style="font-size:14px;color:var(--text-secondary);line-height:1.6">${esc(soulSummary)}</p>
+    </div>
+    ${ws.activeWork ? `<div class="panel"><h2><i data-lucide="hammer"></i> Active Work</h2><div class="md-content">${esc(ws.activeWork)}</div></div>` : ''}
+    ${data.recentNotes.length > 0 ? `
+      <div class="panel">
+        <h2><i data-lucide="calendar"></i> Recent Notes</h2>
+        ${data.recentNotes.map(n => `
+          <div style="margin-bottom:16px">
+            <strong style="font-size:13px;color:var(--accent);font-weight:600">${n.name}</strong>
+            <div class="md-content" style="max-height:200px;margin-top:8px">${esc(n.content || '(empty)')}</div>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderSoul() {
+  const ws = data.workspace;
+  return `
+    <div class="panel">
+      <h2><i data-lucide="sparkles"></i> SOUL.md</h2>
+      ${ws.soul ? `<div class="md-content">${esc(ws.soul)}</div>` : '<div class="empty">No SOUL.md found</div>'}
+    </div>
+    <div class="panel">
+      <h2><i data-lucide="id-card"></i> IDENTITY.md</h2>
+      ${ws.identity ? `<div class="md-content">${esc(ws.identity)}</div>` : '<div class="empty">No IDENTITY.md found</div>'}
+    </div>
+    <div class="panel">
+      <h2><i data-lucide="user"></i> USER.md</h2>
+      ${ws.user ? `<div class="md-content">${esc(ws.user)}</div>` : '<div class="empty">No USER.md found</div>'}
+    </div>
+    <div class="panel">
+      <h2><i data-lucide="scroll"></i> AGENTS.md</h2>
+      ${ws.agents ? `<div class="md-content">${esc(ws.agents)}</div>` : '<div class="empty">No AGENTS.md found</div>'}
+    </div>
+  `;
+}
+
+function renderSkills() {
+  if (data.skills.length === 0) {
+    return '<div class="panel"><div class="empty">No skills installed</div></div>';
+  }
+  return `<div class="panel"><h2><i data-lucide="wrench"></i> Installed Skills (${data.skills.length})</h2>` +
+    data.skills.map(s => `
+      <div class="skill-item">
+        <div>
+          <div class="skill-name">${esc(s.name)}</div>
+          ${s.description ? `<div class="skill-desc">${esc(s.description)}</div>` : ''}
+        </div>
+      </div>
+    `).join('') + '</div>';
+}
+
+function renderMemory() {
+  const ws = data.workspace;
+  return `
+    <div class="panel">
+      <h2><i data-lucide="brain"></i> MEMORY.md (Long-Term)</h2>
+      ${ws.memory ? `<div class="md-content">${esc(ws.memory)}</div>` : '<div class="empty">Empty</div>'}
+    </div>
+    <div class="panel">
+      <h2><i data-lucide="folder"></i> Memory Files (${data.memoryFiles.length})</h2>
+      ${data.memoryFiles.length > 0 ? `<ul class="file-list">` +
+        data.memoryFiles.map(f => `
+          <li class="file-item">
+            <span class="file-name">${esc(f.name)}</span>
+            <span class="file-meta">${fmtBytes(f.size)} · ${new Date(f.modified).toLocaleDateString()}</span>
+          </li>
+        `).join('') + '</ul>' : '<div class="empty">No memory files</div>'}
+    </div>
+    <div class="panel">
+      <h2><i data-lucide="heart-pulse"></i> HEARTBEAT.md</h2>
+      ${ws.heartbeat ? `<div class="md-content">${esc(ws.heartbeat)}</div>` : '<div class="empty">No heartbeat config</div>'}
+    </div>
+    <div class="panel">
+      <h2><i data-lucide="wrench"></i> TOOLS.md</h2>
+      ${ws.tools ? `<div class="md-content">${esc(ws.tools)}</div>` : '<div class="empty">No tools config</div>'}
+    </div>
+  `;
+}
+
+function renderTasks() {
+  const ws = data.workspace;
+  return `
+    <div class="panel">
+      <h2><i data-lucide="clipboard-list"></i> TASKS.md</h2>
+      ${ws.tasks ? `<div class="md-content">${esc(ws.tasks)}</div>` : '<div class="empty">No tasks</div>'}
+    </div>
+  `;
+}
+
+function renderSessions() {
+  const sessions = data.live?.sessions?.sessions || [];
+  if (sessions.length === 0) return '<div class="panel"><div class="empty">No active sessions</div></div>';
+
+  return `<div class="panel"><h2><i data-lucide="message-square"></i> Active Sessions (${sessions.length})</h2>` +
+    sessions.map(s => `
+      <div class="session-row">
+        <div>
+          <span class="session-key">${esc(s.key)}</span>
+        </div>
+        <div class="session-info">
+          <span>${s.model || '—'}</span>
+          <span>${s.totalTokens ? fmtNum(s.totalTokens) + ' tokens' : ''}</span>
+          <span>${s.updatedAt ? timeAgo(s.updatedAt) : ''}</span>
+        </div>
+      </div>
+    `).join('') + '</div>';
+}
+
+function renderControls() {
+  const hbEnabled = data.live?.health?.agents?.some(a =>
+    a.agentId === data.id && a.heartbeat?.enabled
+  );
+
+  return `
+    <div class="panel">
+      <h2><i data-lucide="settings"></i> Agent Controls</h2>
+      <div class="controls-row">
+        <button class="ctrl-btn ${hbEnabled ? 'success' : ''}" onclick="doAction('${hbEnabled ? 'heartbeat-disable' : 'heartbeat-enable'}')">
+          <i data-lucide="${hbEnabled ? 'heart-pulse' : 'heart-off'}"></i> ${hbEnabled ? 'Disable Heartbeat' : 'Enable Heartbeat'}
+        </button>
+        <button class="ctrl-btn" onclick="doAction('heartbeat-trigger')">
+          <i data-lucide="zap"></i> Trigger Heartbeat
+        </button>
+        <button class="ctrl-btn" onclick="if(confirm('Start a fresh conversation? Old session will be archived.')) doAction('session-new')">
+          <i data-lucide="circle-plus"></i> New Session
+        </button>
+        <button class="ctrl-btn danger" onclick="if(confirm('Reset ALL sessions for ${data.config.name}? Nuclear option.')) doAction('session-reset')">
+          <i data-lucide="rotate-ccw"></i> Reset All
+        </button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2><i data-lucide="file-cog"></i> Configuration</h2>
+      <div class="md-content">${esc(JSON.stringify(data.config, null, 2))}</div>
+    </div>
+  `;
+}
+
+function renderSecurity() {
+  return `
+    <div class="panel" id="security-panel">
+      <h2><i data-lucide="shield-check"></i> Security Audit</h2>
+      <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">Powered by Frodo's Security Dashboard — 37 automated checks</p>
+      <button class="ctrl-btn" onclick="runSecurityAudit()" id="audit-btn"><i data-lucide="search"></i> Run Audit</button>
+      <div id="audit-results" style="margin-top:20px"></div>
+    </div>
+  `;
+}
+
+async function runSecurityAudit() {
+  const btn = document.getElementById('audit-btn');
+  const results = document.getElementById('audit-results');
+  btn.disabled = true; btn.innerHTML = '<i data-lucide="loader-circle" class="lucide-spin"></i> Running...'; refreshIcons();
+  results.innerHTML = '<p style="color:var(--text-secondary)">Running 37 security checks...</p>';
+
+  try {
+    const res = await fetch('/api/security-audit');
+    const audit = await res.json();
+
+    let html = '';
+    let totalPass = 0, totalWarn = 0, totalFail = 0, totalInfo = 0;
+
+    for (const section of audit.sections) {
+      const checks = section.checks || [];
+      const pass = checks.filter(c => c.status === 'pass').length;
+      const warn = checks.filter(c => c.status === 'warn').length;
+      const fail = checks.filter(c => c.status === 'fail').length;
+      totalPass += pass; totalWarn += warn; totalFail += fail;
+      totalInfo += checks.filter(c => c.status === 'info').length;
+
+      html += '<div style="margin-bottom:24px">';
+      html += '<h3 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary)">' + section.title + ' ';
+      html += '<span style="font-size:12px;color:var(--text-tertiary)">(' + checks.length + ' checks)</span></h3>';
+
+      for (const check of checks) {
+        const icon = check.status === 'pass' ? '✅' : check.status === 'warn' ? '⚠️' : check.status === 'fail' ? '❌' : 'ℹ️';
+        const color = check.status === 'pass' ? 'var(--success)' : check.status === 'warn' ? 'var(--warning)' : check.status === 'fail' ? 'var(--error)' : 'var(--text-secondary)';
+        html += '<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);font-size:13px">';
+        html += '<span>' + icon + ' ' + esc(check.name) + '</span>';
+        html += '<span style="color:' + color + ';font-size:12px;font-weight:500">' + esc(check.detail) + '</span>';
+        html += '</div>';
+        if (check.extra) {
+          html += '<div style="padding:6px 14px 10px 36px;font-size:11px;color:var(--text-tertiary);font-family:monospace;white-space:pre-wrap;background:var(--bg-primary);border-radius:4px;margin-top:4px">' + esc(check.extra) + '</div>';
+        }
+      }
+      html += '</div>';
+    }
+
+    // Summary bar
+    const total = totalPass + totalWarn + totalFail + totalInfo;
+    const summaryHtml = '<div style="display:flex;gap:20px;margin-bottom:24px;padding:16px;background:var(--bg-secondary);border:1px solid var(--border-subtle);border-radius:10px;align-items:center">'
+      + '<span style="font-size:15px;font-weight:700;color:var(--text-primary)">Score: ' + totalPass + '/' + total + '</span>'
+      + '<span style="color:var(--success);font-size:13px;font-weight:500">✅ ' + totalPass + ' pass</span>'
+      + '<span style="color:var(--warning);font-size:13px;font-weight:500">⚠️ ' + totalWarn + ' warn</span>'
+      + '<span style="color:var(--error);font-size:13px;font-weight:500">❌ ' + totalFail + ' fail</span>'
+      + '<span style="color:var(--text-secondary);font-size:13px;font-weight:500">ℹ️ ' + totalInfo + ' info</span>'
+      + '<span style="color:var(--text-tertiary);font-size:11px;margin-left:auto">' + audit.timestamp + '</span>'
+      + '</div>';
+
+    results.innerHTML = summaryHtml + html;
+    btn.disabled = false; btn.innerHTML = '<i data-lucide="search"></i> Run Audit'; refreshIcons();
+  } catch (e) {
+    results.innerHTML = '<p style="color:var(--error)">Error: ' + e.message + '</p>';
+    btn.disabled = false; btn.innerHTML = '<i data-lucide="search"></i> Run Audit'; refreshIcons();
+  }
+}
+
+function refreshIcons() { if (window.lucide) lucide.createIcons(); }
+
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="${id}"]`).classList.add('active');
+  document.getElementById(`tab-${id}`).classList.add('active');
+  refreshIcons();
+}
+
+async function doAction(action) {
+  try {
+    const res = await fetch(`/api/agents/${agentId}/action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    const result = await res.json();
+    showToast(result.ok ? result.message : result.error, result.ok ? '' : 'error');
+    if (result.ok) setTimeout(load, 2000);
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+function showToast(msg, cls = '') {
+  const t = document.createElement('div');
+  t.className = `toast ${cls}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+// Helpers
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function timeAgo(ts) {
+  const d = Date.now() - ts;
+  if (d < 60000) return 'just now';
+  if (d < 3600000) return Math.floor(d/60000) + 'm ago';
+  if (d < 86400000) return Math.floor(d/3600000) + 'h ago';
+  return Math.floor(d/86400000) + 'd ago';
+}
+function fmtBytes(b) {
+  if (b > 1048576) return (b/1048576).toFixed(1) + ' MB';
+  if (b > 1024) return (b/1024).toFixed(1) + ' KB';
+  return b + ' B';
+}
+function fmtNum(n) { return n.toLocaleString(); }
+
+load();
+</script>
+</main>
+<script src="/layout.js"></script>
+<script src="/lucide.min.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

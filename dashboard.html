@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clawd Control</title>
+<style>
+/* ═══════════════════════════════════════════
+   DASHBOARD — Page-specific styles only.
+   Layout, sidebar, topbar, theme, design system
+   are provided by layout.js.
+   ═══════════════════════════════════════════ */
+
+/* ── Host Bar ──────────────────────────── */
+.host-bar {
+  display: flex; gap: 20px; font-size: 0.75rem; color: var(--text-tertiary);
+  padding: 8px 12px; margin-bottom: 16px;
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); flex-wrap: wrap;
+}
+.host-bar strong { color: var(--text-primary); font-weight: 600; }
+.bar-track {
+  width: 60px; height: 3px; background: var(--bg-primary); border-radius: 2px;
+  display: inline-block; vertical-align: middle; margin-left: 4px;
+}
+.bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+.bar-fill.ok { background: var(--success); }
+.bar-fill.warn { background: var(--warning); }
+.bar-fill.crit { background: var(--error); }
+
+/* ── Stats Grid ────────────────────────── */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin-bottom: 16px;
+}
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); padding: 14px 16px;
+  transition: all 0.35s ease; position: relative;
+}
+.stat-card:hover { border-color: var(--border); }
+[data-theme="light"] .stat-card { box-shadow: var(--shadow-sm); }
+.stat-label {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-tertiary); margin-bottom: 4px; font-weight: 600;
+}
+.stat-value {
+  font-size: 1.5rem; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-value.success { color: var(--success); }
+.stat-value.error { color: var(--error); }
+.stat-value.warning { color: var(--warning); }
+.stat-value.accent { color: var(--accent); }
+.stat-sub { font-size: 0.7rem; color: var(--text-tertiary); margin-top: 4px; }
+.stat-dot {
+  position: absolute; top: 14px; right: 14px;
+  width: 6px; height: 6px; border-radius: 50%;
+}
+
+/* ── Fleet Health Breakdown ────────────── */
+.fleet-breakdown {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px; font-size: 0.72rem; color: var(--text-tertiary);
+}
+.fleet-breakdown .label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.65rem; }
+.breakdown-bar {
+  flex: 1; height: 6px; border-radius: 3px; overflow: hidden;
+  display: flex; gap: 1px; background: var(--border-subtle);
+}
+.breakdown-bar .seg { border-radius: 2px; transition: flex 0.5s; }
+.breakdown-bar .seg.ok { background: var(--success); }
+.breakdown-bar .seg.warn { background: var(--warning); }
+.breakdown-bar .seg.err { background: var(--error); }
+.breakdown-bar .seg.off { background: var(--border); }
+.fleet-pct { font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+/* ── Agent Grid ────────────────────────── */
+.agents-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 12px;
+}
+.agent-card {
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); padding: 16px;
+  transition: all var(--transition-base); cursor: pointer; position: relative;
+}
+.agent-card:hover { border-color: var(--border); box-shadow: var(--shadow-md); }
+[data-theme="light"] .agent-card { box-shadow: var(--shadow-sm); }
+[data-theme="light"] .agent-card:hover { box-shadow: var(--shadow-md); }
+.agent-card.status-healthy { border-left: 3px solid var(--success); }
+.agent-card.status-degraded { border-left: 3px solid var(--warning); }
+.agent-card.status-down { border-left: 3px solid var(--error); }
+.agent-card.status-idle { border-left: 3px solid var(--border); }
+.agent-card.status-healthy:hover { box-shadow: var(--shadow-md), 0 0 20px var(--success-dim); }
+.agent-card.status-degraded:hover { box-shadow: var(--shadow-md), 0 0 20px var(--warning-dim); }
+.agent-card.status-down:hover { box-shadow: var(--shadow-md), 0 0 20px var(--error-dim); }
+
+.agent-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+}
+.agent-name { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; font-weight: 700; }
+.agent-emoji { font-size: 1.3rem; }
+.agent-badge {
+  font-size: 0.6rem; padding: 2px 8px; border-radius: var(--radius-sm);
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  display: flex; align-items: center; gap: 3px;
+}
+.agent-badge.online { background: var(--success-bg); color: var(--success); }
+.agent-badge.offline { background: var(--error-bg); color: var(--error); }
+.agent-badge.degraded { background: var(--warning-bg); color: var(--warning); }
+.agent-badge.idle { background: rgba(113,113,122,0.12); color: var(--text-tertiary); }
+
+.health-bar { display: flex; gap: 2px; height: 3px; border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
+.health-seg { flex: 1; border-radius: 1px; transition: background 0.5s; }
+.health-seg.ok { background: var(--success); }
+.health-seg.warn { background: var(--warning); }
+.health-seg.err { background: var(--error); }
+.health-seg.off { background: var(--border-subtle); }
+
+.health-pills { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+.health-pill {
+  font-size: 0.65rem; padding: 2px 6px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; gap: 3px; background: var(--bg-primary); color: var(--text-secondary);
+}
+.health-pill .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.health-pill .dot.g { background: var(--success); }
+.health-pill .dot.y { background: var(--warning); }
+.health-pill .dot.r { background: var(--error); }
+.health-pill .dot.x { background: var(--text-tertiary); }
+
+.metrics-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 8px; }
+.metric { background: var(--bg-primary); border-radius: var(--radius-sm); padding: 8px 10px; }
+.metric-label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); margin-bottom: 2px; }
+.metric-value { font-size: 0.85rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+
+.card-section {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-tertiary);
+  margin: 8px 0 4px; padding-top: 8px; border-top: 1px solid var(--border-subtle);
+}
+.channel-row { display: flex; gap: 4px; flex-wrap: wrap; }
+.channel-pill {
+  font-size: 0.65rem; padding: 2px 8px; border-radius: var(--radius-sm);
+  background: var(--accent-bg); color: var(--accent); border: 1px solid rgba(201,164,74,0.15);
+}
+.channel-pill.connected { background: var(--success-bg); color: var(--success); border-color: rgba(34,197,94,0.15); }
+.channel-pill.error { background: var(--error-bg); color: var(--error); border-color: rgba(239,68,68,0.15); }
+
+.session-list { list-style: none; }
+.session-item {
+  padding: 3px 0; font-size: 0.75rem; display: flex; justify-content: space-between;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.session-item:last-child { border-bottom: none; }
+.session-kind { color: var(--accent); font-weight: 600; }
+.session-time { color: var(--text-tertiary); font-size: 0.68rem; }
+
+.context-bar { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.context-track { flex: 1; height: 3px; background: var(--bg-primary); border-radius: 2px; }
+.context-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+.context-label { font-size: 0.65rem; color: var(--text-tertiary); white-space: nowrap; }
+
+.card-controls {
+  display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px;
+  padding-top: 8px; border-top: 1px solid var(--border-subtle);
+}
+.ctrl-btn {
+  padding: 4px 8px; font-size: 0.68rem; font-weight: 600; border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle); background: var(--bg-primary); color: var(--text-secondary);
+  cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);
+  display: inline-flex; align-items: center; gap: 3px;
+}
+.ctrl-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--surface-hover); }
+.ctrl-btn.active { border-color: var(--success); color: var(--success); }
+.ctrl-btn.danger { color: var(--error); }
+.ctrl-btn.danger:hover { border-color: var(--error); background: var(--error-bg); color: var(--error); }
+.ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.ctrl-btn [data-lucide] { width: 12px; height: 12px; }
+
+.last-seen { margin-top: 6px; font-size: 0.65rem; color: var(--text-tertiary); }
+.error-text { color: var(--error); font-size: 0.7rem; margin-top: 4px; font-style: italic; }
+
+.empty-state { text-align: center; padding: 60px 24px; color: var(--text-secondary); }
+.empty-state .icon { font-size: 2rem; margin-bottom: 12px; opacity: 0.4; }
+.empty-state p { font-size: 0.85rem; }
+
+.scan-footer { margin-top: 16px; padding-top: 12px; font-size: 0.7rem; color: var(--text-tertiary); }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.fade-up { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@media (max-width: 800px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .agents-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Main Content (sidebar + topbar injected by layout.js) ── -->
+<main class="main">
+  <div class="host-bar" id="hostBar"><span>⏳ Loading host…</span></div>
+
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card fade-up" style="animation-delay:.05s">
+      <div class="stat-label">Agents</div>
+      <div class="stat-value accent" id="statTotal">—</div>
+      <div class="stat-sub" id="statTotalSub">Registered</div>
+      <div class="stat-dot" style="background:var(--accent)"></div>
+    </div>
+    <div class="stat-card fade-up" style="animation-delay:.1s">
+      <div class="stat-label">Online</div>
+      <div class="stat-value success" id="statOnline">—</div>
+      <div class="stat-sub" id="statOnlineSub">Connected</div>
+      <div class="stat-dot" id="onlineDot" style="background:var(--success)"></div>
+    </div>
+    <div class="stat-card fade-up" style="animation-delay:.15s">
+      <div class="stat-label">7d API Cost (est.)</div>
+      <div class="stat-value accent" id="statCost">—</div>
+      <div class="stat-sub">All gateways, token-based</div>
+      <div class="stat-dot" style="background:var(--accent)"></div>
+    </div>
+    <div class="stat-card fade-up" style="animation-delay:.2s">
+      <div class="stat-label">Last Update</div>
+      <div class="stat-value" id="statTime" style="font-size:1.1rem">—</div>
+      <div class="stat-sub" id="statTimeSub"></div>
+      <div class="stat-dot" style="background:var(--info)"></div>
+    </div>
+  </div>
+
+  <div class="fleet-breakdown fade-up" style="animation-delay:.25s" id="fleetBreakdown">
+    <span class="label">Fleet Health</span>
+    <div class="breakdown-bar" id="breakdownBar"></div>
+    <span class="fleet-pct" id="fleetPct">—</span>
+  </div>
+
+  <div id="agentGrid" class="agents-grid">
+    <div class="empty-state">
+      <div class="icon">📡</div>
+      <p>Connecting to agents…</p>
+    </div>
+  </div>
+
+  <div class="scan-footer" id="scanFooter"></div>
+</main>
+
+<script src="/layout.js"></script>
+<script>
+'use strict';
+
+// Uses: window.agentState, window.hostState, window.computeHealth,
+//       window.extractChannels, window.getHeartbeatState, window.getHeartbeatTs,
+//       window.timeAgo, window.fmtBytes, window.formatUptime,
+//       window.showToast, window.refreshIcons
+// All provided by layout.js.
+
+const $ = s => document.querySelector(s);
+
+// ═══════════════════════════════════════════
+// SSE EVENT LISTENERS (from layout.js)
+// ═══════════════════════════════════════════
+
+document.addEventListener('layout:snapshot', () => renderAll());
+document.addEventListener('layout:agent-update', (e) => {
+  renderAgent(e.detail.id);
+  renderStats();
+});
+document.addEventListener('layout:host-update', () => renderHost());
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+
+function renderAll() {
+  renderHost();
+  renderStats();
+  renderFleetHealth();
+  const grid = $('#agentGrid');
+  grid.innerHTML = '';
+  const ids = Object.keys(agentState).sort();
+  if (ids.length === 0) {
+    grid.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No agents configured</p></div>';
+    return;
+  }
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    const card = document.createElement('article');
+    card.className = 'agent-card fade-up';
+    card.style.animationDelay = `${0.1 + i * 0.06}s`;
+    card.id = `card-${id}`;
+    grid.appendChild(card);
+    renderAgent(id);
+  }
+  $('#scanFooter').textContent = `Last scan: ${new Date().toLocaleString()}`;
+  refreshIcons();
+}
+
+function renderStats() {
+  const ids = Object.keys(agentState);
+  const total = ids.length;
+  const online = ids.filter(id => agentState[id].online).length;
+  const seenGateways = new Set();
+  const totalCost = ids.reduce((sum, id) => {
+    const a = agentState[id];
+    const cost = extractCostRaw(a);
+    if (!cost) return sum;
+    if (a.usage?.shared) {
+      const gwKey = String(cost);
+      if (seenGateways.has(gwKey)) return sum;
+      seenGateways.add(gwKey);
+    }
+    return sum + cost;
+  }, 0);
+
+  $('#statTotal').textContent = total;
+  $('#statTotalSub').textContent = 'Registered';
+  $('#statOnline').textContent = online;
+  $('#statOnline').className = `stat-value ${online === total ? 'success' : 'warning'}`;
+  $('#statOnlineSub').textContent = `of ${total} connected`;
+  $('#onlineDot').style.background = online === total ? 'var(--success)' : 'var(--warning)';
+  $('#statCost').textContent = totalCost > 0 ? '~$' + totalCost.toFixed(2) : '—';
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  $('#statTime').textContent = timeStr;
+  $('#statTimeSub').textContent = `${online}/${total} online`;
+}
+
+function renderHost() {
+  const h = window.hostState;
+  if (!h || !h.memory) return;
+  const memPct = Math.round(h.memory.used / h.memory.total * 100);
+  const diskPct = h.disk?.total ? Math.round(h.disk.used / h.disk.total * 100) : 0;
+  const load = h.loadAvg?.[0]?.toFixed(2) || '—';
+  $('#hostBar').innerHTML = `
+    <span><strong>${h.hostname || 'host'}</strong></span>
+    <span>Load: <strong>${load}</strong></span>
+    <span>RAM: <strong>${memPct}%</strong> ${barHtml(memPct)} <span style="font-size:0.65rem">${fmtBytes(h.memory.used)}/${fmtBytes(h.memory.total)}</span></span>
+    <span>Disk: <strong>${diskPct}%</strong> ${barHtml(diskPct)}</span>
+    <span>Uptime: <strong>${formatUptime(h.uptime)}</strong></span>
+  `;
+}
+
+function renderFleetHealth() {
+  const ids = Object.keys(agentState);
+  if (ids.length === 0) return;
+
+  let totalOk = 0, totalWarn = 0, totalFail = 0, totalOff = 0;
+  ids.forEach(id => {
+    const health = computeHealth(agentState[id]);
+    health.checks.forEach(c => {
+      if (c.s === 'ok') totalOk++;
+      else if (c.s === 'warn') totalWarn++;
+      else if (c.s === 'err') totalFail++;
+      else totalOff++;
+    });
+  });
+  const total = totalOk + totalWarn + totalFail + totalOff;
+  const pct = total > 0 ? Math.round((totalOk / (totalOk + totalWarn + totalFail)) * 100) : 0;
+
+  const bar = $('#breakdownBar');
+  bar.innerHTML = '';
+  if (totalOk) { const s = document.createElement('div'); s.className = 'seg ok'; s.style.flex = totalOk; bar.appendChild(s); }
+  if (totalWarn) { const s = document.createElement('div'); s.className = 'seg warn'; s.style.flex = totalWarn; bar.appendChild(s); }
+  if (totalFail) { const s = document.createElement('div'); s.className = 'seg err'; s.style.flex = totalFail; bar.appendChild(s); }
+  if (totalOff) { const s = document.createElement('div'); s.className = 'seg off'; s.style.flex = totalOff; bar.appendChild(s); }
+
+  const actionable = totalOk + totalWarn + totalFail;
+  $('#fleetPct').textContent = `${pct}% (${totalOk}/${actionable} passed)`;
+}
+
+function renderAgent(id) {
+  let card = $(`#card-${id}`);
+  if (!card) {
+    card = document.createElement('article');
+    card.id = `card-${id}`;
+    $('#agentGrid').appendChild(card);
+  }
+  const a = agentState[id];
+  if (!a) return;
+
+  const health = computeHealth(a);
+  card.className = `agent-card status-${health.level}`;
+  card.onclick = (e) => { if (!e.target.closest('.ctrl-btn')) window.location.href = `/agent/${id}`; };
+  card.setAttribute('tabindex', '0');
+  card.setAttribute('role', 'link');
+  card.setAttribute('aria-label', `View ${a.name || id} details`);
+  card.innerHTML = buildAgentHTML(id, a, health);
+  refreshIcons();
+}
+
+// ═══════════════════════════════════════════
+// CARD HTML BUILDER
+// ═══════════════════════════════════════════
+
+function buildAgentHTML(id, a, health) {
+  const badgeClass = a.online ? (health.level === 'healthy' ? 'online' : (health.level === 'degraded' ? 'degraded' : 'idle')) : 'offline';
+  const badgeLabel = a.online ? (health.level === 'healthy' ? '● Healthy' : (health.level === 'degraded' ? '◐ Degraded' : '○ Idle')) : '○ Offline';
+  const model = extractModel(a);
+  const sessCount = extractSessionCount(a);
+  const channels = extractChannels(a);
+  const sessions = extractSessions(a);
+  const cronJobs = extractCronCount(a);
+  const hbEnabled = getHeartbeatState(a) === 'enabled';
+  const mainSess = sessions.find(s => s.key?.endsWith(':main') || s.label === 'main');
+  const ctxPct = mainSess?.contextPct || null;
+
+  let html = `
+    <div class="agent-header">
+      <div class="agent-name">
+        <span class="agent-emoji">${a.emoji || '🤖'}</span>
+        <span>${a.name || id}</span>
+      </div>
+      <span class="agent-badge ${badgeClass}">${badgeLabel}</span>
+    </div>
+    <div class="health-bar">
+      ${health.checks.map(c => `<div class="health-seg ${c.s === 'ok' ? 'ok' : c.s === 'warn' ? 'warn' : c.s === 'err' ? 'err' : 'off'}" title="${c.name}: ${c.d}"></div>`).join('')}
+    </div>
+    <div class="health-pills">
+      ${health.checks.map(c => `<span class="health-pill"><span class="dot ${c.s === 'ok' ? 'g' : c.s === 'warn' ? 'y' : c.s === 'err' ? 'r' : 'x'}"></span>${c.name}</span>`).join('')}
+    </div>
+    <div class="metrics-row">
+      <div class="metric"><div class="metric-label">Model</div><div class="metric-value" style="font-size:0.78rem">${model}</div></div>
+      <div class="metric"><div class="metric-label">Sessions</div><div class="metric-value">${sessCount}</div></div>
+    </div>`;
+
+  if (ctxPct !== null) {
+    const cls = ctxPct > 80 ? 'crit' : ctxPct > 60 ? 'warn' : 'ok';
+    html += `<div class="context-bar"><span class="context-label">Context: ${ctxPct}%</span><div class="context-track"><div class="context-fill bar-fill ${cls}" style="width:${ctxPct}%"></div></div></div>`;
+  }
+
+  if (a.error && !a.online) html += `<div class="error-text">⚠ ${a.error}</div>`;
+
+  if (channels.length > 0) {
+    html += `<div class="card-section">Channels</div><div class="channel-row">${channels.map(c => `<span class="channel-pill ${c.status}">${c.name}</span>`).join('')}</div>`;
+  }
+
+  if (sessions.length > 0) {
+    html += `<div class="card-section">Sessions</div><ul class="session-list">`;
+    for (const s of sessions.slice(0, 4)) {
+      html += `<li class="session-item"><span><span class="session-kind">${s.kind}</span> ${s.label}</span><span class="session-time">${s.time}</span></li>`;
+    }
+    if (sessions.length > 4) html += `<li class="session-item"><span class="session-time">+${sessions.length - 4} more</span></li>`;
+    html += `</ul>`;
+  }
+
+  if (cronJobs > 0) {
+    html += `<div class="card-section">Cron</div><div style="font-size:0.78rem;color:var(--text-secondary)">${cronJobs} job${cronJobs > 1 ? 's' : ''}</div>`;
+  }
+
+  html += `
+    <div class="card-controls">
+      <button class="ctrl-btn ${hbEnabled ? 'active' : ''}" onclick="agentAction('${id}', '${hbEnabled ? 'heartbeat-disable' : 'heartbeat-enable'}')" title="${hbEnabled ? 'Disable' : 'Enable'} heartbeat">
+        <i data-lucide="${hbEnabled ? 'heart-pulse' : 'heart-off'}"></i> HB ${hbEnabled ? 'ON' : 'OFF'}
+      </button>
+      <button class="ctrl-btn" onclick="agentAction('${id}', 'heartbeat-trigger')" ${!a.online ? 'disabled' : ''} title="Trigger heartbeat">
+        <i data-lucide="zap"></i> Trigger
+      </button>
+      <button class="ctrl-btn" onclick="confirmAction('${id}', 'session-new', 'Start fresh session for ${a.name || id}?')" ${!a.online ? 'disabled' : ''} title="New session">
+        <i data-lucide="circle-plus"></i> New
+      </button>
+      <button class="ctrl-btn danger" onclick="confirmAction('${id}', 'session-reset', 'Reset ALL sessions for ${a.name || id}?')" ${!a.online ? 'disabled' : ''} title="Reset sessions">
+        <i data-lucide="rotate-ccw"></i> Reset
+      </button>
+    </div>`;
+
+  if (a.lastSeen) html += `<div class="last-seen">Last seen: ${timeAgo(a.lastSeen)}</div>`;
+  return html;
+}
+
+// ═══════════════════════════════════════════
+// DATA EXTRACTORS (dashboard-specific)
+// ═══════════════════════════════════════════
+
+function extractModel(a) {
+  const clean = m => m.replace('anthropic/', '').replace('openai/', '');
+  const gwId = a.gatewayAgentId || a.id;
+  const agents = a.health?.agents;
+  if (Array.isArray(agents)) {
+    const m = agents.find(ag => ag.agentId === gwId) || agents.find(ag => ag.isDefault) || agents[0];
+    if (m?.model) return clean(m.model);
+  }
+  const sess = a.sessions?.sessions;
+  if (Array.isArray(sess)) { for (const s of sess) { if (s.model) return clean(s.model); } }
+  if (a.health?.config?.defaultModel) return clean(a.health.config.defaultModel);
+  return '—';
+}
+
+function extractCostRaw(a) {
+  const t = a.usage?.totals;
+  if (!t) return 0;
+  return typeof t.totalCost === 'number' ? t.totalCost : (typeof t.cost === 'number' ? t.cost : 0);
+}
+
+function extractSessionCount(a) {
+  if (!a.sessions) return '—';
+  if (Array.isArray(a.sessions)) return a.sessions.length;
+  if (a.sessions.sessions) return a.sessions.sessions.length;
+  return '—';
+}
+
+function extractSessions(a) {
+  if (!a.sessions) return [];
+  let list = a.sessions.sessions || a.sessions;
+  if (!Array.isArray(list)) { if (typeof list === 'object') list = Object.values(list); else return []; }
+  return list.filter(s => s && typeof s === 'object').map(s => ({
+    key: s.key || '',
+    kind: s.kind || s.type || 'session',
+    label: s.label || s.key?.split(':').pop() || '',
+    model: (s.model || '').replace('anthropic/', '').replace('openai/', ''),
+    time: s.updatedAt ? timeAgo(s.updatedAt) : '',
+    ageMs: s.ageMs || (s.updatedAt ? Date.now() - s.updatedAt : Infinity),
+    contextPct: s.contextTokens && s.totalTokens ? Math.round(s.totalTokens / s.contextTokens * 100) : null,
+  }));
+}
+
+function extractCronCount(a) {
+  if (!a.cron) return 0;
+  const list = Array.isArray(a.cron) ? a.cron : (a.cron.jobs || []);
+  return list.filter(j => j.enabled !== false).length;
+}
+
+// ═══════════════════════════════════════════
+// AGENT ACTIONS
+// ═══════════════════════════════════════════
+
+async function agentAction(id, action) {
+  try {
+    const res = await fetch(`/api/agents/${id}/action`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    const result = await res.json();
+    showToast(result.ok ? result.message : result.error, result.ok ? 'success' : 'error');
+    if (result.ok) {
+      const refetch = () => fetch('/api/snapshot').then(r=>r.json()).then(snap => {
+        if (snap.agents) for (const [k,v] of Object.entries(snap.agents)) agentState[k] = v;
+        renderAll();
+      });
+      setTimeout(refetch, 1500);
+      setTimeout(refetch, 5000);
+      setTimeout(refetch, 15000);
+    }
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function confirmAction(id, action, message) {
+  if (confirm(message)) agentAction(id, action);
+}
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+
+function barHtml(pct) {
+  const cls = pct > 90 ? 'crit' : pct > 70 ? 'warn' : 'ok';
+  return `<span class="bar-track"><span class="bar-fill ${cls}" style="width:${pct}%"></span></span>`;
+}
+</script>
+<script src="/lucide.min.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

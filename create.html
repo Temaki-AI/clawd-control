@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Agent — Clawd Control</title>
+<style>
+
+  /* Container */
+  .container { 
+    max-width: 640px; 
+    margin: 0 auto; 
+    padding: 32px; 
+  }
+
+  /* Title */
+  h1 { 
+    font-size: 32px; 
+    font-weight: 700; 
+    margin-bottom: 8px; 
+    letter-spacing: -0.5px; 
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .subtitle { 
+    color: var(--text-secondary); 
+    font-size: 15px; 
+    margin-bottom: 48px; 
+  }
+
+  /* Steps Progress */
+  .steps { 
+    display: flex; 
+    gap: 4px; 
+    margin-bottom: 48px; 
+  }
+  .step-dot { 
+    flex: 1; 
+    height: 4px; 
+    border-radius: 2px; 
+    background: var(--border-subtle); 
+    transition: background 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .step-dot.active { background: var(--accent); }
+  .step-dot.done { background: var(--success); }
+
+  /* Sections */
+  .section { 
+    display: none; 
+    animation: fadeIn 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .section.active { display: block; }
+  @keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(8px); } 
+    to { opacity: 1; transform: translateY(0); } 
+  }
+
+  .section h2 { 
+    font-size: 22px; 
+    font-weight: 700; 
+    margin-bottom: 6px;
+    color: var(--text-primary);
+  }
+  .section .hint { 
+    color: var(--text-secondary); 
+    font-size: 14px; 
+    margin-bottom: 32px; 
+  }
+
+  /* Form Fields */
+  .field { 
+    margin-bottom: 24px; 
+  }
+  .field label { 
+    display: block; 
+    font-size: 11px; 
+    font-weight: 700; 
+    color: var(--text-tertiary); 
+    margin-bottom: 8px; 
+    text-transform: uppercase; 
+    letter-spacing: 0.8px; 
+  }
+  .field input, 
+  .field textarea, 
+  .field select {
+    width: 100%; 
+    padding: 12px 16px; 
+    background: var(--surface); 
+    border: 1px solid var(--border);
+    border-radius: 6px; 
+    color: var(--text-primary); 
+    font-size: 14px; 
+    font-family: var(--font);
+    outline: none; 
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .field input:focus, 
+  .field textarea:focus, 
+  .field select:focus { 
+    border-color: var(--accent);
+    background: var(--bg-secondary);
+  }
+  .field textarea { 
+    resize: vertical; 
+    min-height: 100px;
+    line-height: 1.6;
+  }
+  .field select { 
+    appearance: none; 
+    cursor: pointer; 
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23a1a1aa' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E"); 
+    background-repeat: no-repeat; 
+    background-position: right 16px center; 
+    padding-right: 44px; 
+  }
+  .field .helper { 
+    font-size: 12px; 
+    color: var(--text-secondary); 
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .field.error input, 
+  .field.error textarea { 
+    border-color: var(--error); 
+  }
+  .field .error-msg { 
+    font-size: 12px; 
+    color: var(--error); 
+    margin-top: 6px; 
+    display: none; 
+  }
+  .field.error .error-msg { display: block; }
+
+  /* Emoji Picker */
+  .emoji-row { 
+    display: flex; 
+    gap: 10px; 
+    flex-wrap: wrap; 
+  }
+  .emoji-btn {
+    width: 52px; 
+    height: 52px; 
+    font-size: 24px; 
+    background: var(--surface); 
+    border: 2px solid var(--border);
+    border-radius: 10px; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .emoji-btn:hover { 
+    border-color: var(--accent); 
+    transform: scale(1.05); 
+  }
+  .emoji-btn.selected { 
+    border-color: var(--accent); 
+    background: rgba(201, 164, 74, 0.12);
+    box-shadow: 0 0 0 3px rgba(201, 164, 74, 0.1);
+  }
+
+  /* Instructions Panel */
+  .instructions {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .instructions h3 { 
+    font-size: 14px; 
+    font-weight: 700; 
+    margin-bottom: 16px;
+    color: var(--text-primary);
+  }
+  .instructions ol { 
+    padding-left: 24px; 
+    font-size: 13px; 
+    color: var(--text-secondary); 
+  }
+  .instructions li { 
+    margin-bottom: 10px; 
+    line-height: 1.6; 
+  }
+  .instructions code { 
+    background: var(--bg-primary); 
+    padding: 2px 8px; 
+    border-radius: 4px; 
+    font-size: 12px; 
+    color: var(--accent);
+    font-family: 'SF Mono', 'Consolas', monospace;
+  }
+  .instructions a { 
+    color: var(--accent); 
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .instructions a:hover { 
+    text-decoration: underline; 
+  }
+
+  /* Skip Link */
+  .skip-link { 
+    display: inline-block; 
+    margin-top: 12px; 
+    font-size: 13px; 
+    color: var(--text-secondary); 
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .skip-link:hover { color: var(--accent); }
+
+  /* Buttons */
+  .buttons { 
+    display: flex; 
+    gap: 12px; 
+    margin-top: 40px; 
+  }
+  .btn {
+    padding: 12px 24px; 
+    border-radius: 6px; 
+    font-size: 14px; 
+    font-weight: 600; 
+    cursor: pointer;
+    border: none; 
+    font-family: var(--font); 
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-primary { 
+    background: var(--accent); 
+    color: #000; 
+    flex: 1;
+  }
+  .btn-primary:hover { 
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+  }
+  .btn-primary:disabled { 
+    opacity: 0.5; 
+    cursor: not-allowed;
+    transform: none;
+  }
+  .btn-secondary { 
+    background: var(--surface); 
+    color: var(--text-primary); 
+    border: 1px solid var(--border); 
+  }
+  .btn-secondary:hover { 
+    background: var(--bg-secondary);
+    border-color: var(--text-tertiary);
+  }
+
+  /* Review Card */
+  .review-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px;
+    margin-bottom: 32px;
+  }
+  .review-row { 
+    display: flex; 
+    justify-content: space-between; 
+    padding: 12px 0; 
+    border-bottom: 1px solid var(--border-subtle); 
+    font-size: 14px; 
+  }
+  .review-row:last-child { border-bottom: none; }
+  .review-label { 
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  .review-value { 
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  /* Result State */
+  .result { 
+    text-align: center; 
+    padding: 60px 0; 
+  }
+  .result .icon { 
+    font-size: 64px; 
+    margin-bottom: 20px;
+    line-height: 1;
+  }
+  .result h2 { 
+    font-size: 24px; 
+    margin-bottom: 12px; 
+    color: var(--text-primary); 
+  }
+  .result p { 
+    color: var(--text-secondary); 
+    margin-bottom: 32px; 
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .result .actions { 
+    display: flex; 
+    gap: 12px; 
+    justify-content: center; 
+  }
+
+  /* Creating State */
+  .creating-state { 
+    text-align: center; 
+    padding: 80px 0; 
+  }
+  .creating-state .spinner { 
+    width: 48px; 
+    height: 48px; 
+    border: 3px solid var(--border); 
+    border-top-color: var(--accent); 
+    border-radius: 50%; 
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 24px;
+  }
+  @keyframes spin { 
+    to { transform: rotate(360deg); } 
+  }
+  .creating-state p { 
+    color: var(--text-secondary); 
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+  .creating-state .log { 
+    margin-top: 24px; 
+    text-align: left; 
+    background: var(--surface); 
+    border: 1px solid var(--border); 
+    border-radius: 10px; 
+    padding: 20px; 
+    font-family: 'SF Mono', 'Consolas', monospace; 
+    font-size: 12px; 
+    color: var(--success); 
+    max-height: 280px; 
+    overflow-y: auto;
+  }
+  .creating-state .log div { 
+    margin-bottom: 6px;
+    line-height: 1.5;
+  }
+  .creating-state .log::-webkit-scrollbar { width: 6px; }
+  .creating-state .log::-webkit-scrollbar-track { background: var(--bg-primary); }
+  .creating-state .log::-webkit-scrollbar-thumb { 
+    background: var(--border); 
+    border-radius: 3px; 
+  }
+
+  /* Lucide Icons */
+  .lucide, [data-lucide] { 
+    width: 1em; 
+    height: 1em; 
+    display: inline-block; 
+    vertical-align: -0.125em; 
+    flex-shrink: 0; 
+  }
+  .btn .lucide { 
+    width: 16px; 
+    height: 16px; 
+  }
+  h1 .lucide { 
+    width: 32px; 
+    height: 32px; 
+  }
+  /* Responsive */
+  @media (max-width: 640px) {
+    .container { padding: 24px 16px; }
+    h1 { font-size: 26px; }
+    .emoji-row { justify-content: center; }
+    .buttons { flex-direction: column; }
+    .btn-secondary { order: 2; }
+  }
+</style>
+</head>
+<body>
+<main class="main">
+<div class="container">
+  <h1>
+    <i data-lucide="user-plus"></i> 
+    Create New Agent
+  </h1>
+  <p class="subtitle">Spin up a new agent in a few steps.</p>
+
+  <div class="steps">
+    <div class="step-dot active" data-step="0"></div>
+    <div class="step-dot" data-step="1"></div>
+    <div class="step-dot" data-step="2"></div>
+    <div class="step-dot" data-step="3"></div>
+  </div>
+
+  <!-- Step 1: Identity -->
+  <div class="section active" id="step-0">
+    <h2>Identity</h2>
+    <p class="hint">Give your agent a name and personality.</p>
+
+    <div class="field" id="f-name">
+      <label>Name</label>
+      <input type="text" id="agent-name" placeholder="e.g. Sam, Frodo, Merry" autocomplete="off" maxlength="32">
+      <p class="error-msg">Name is required</p>
+    </div>
+
+    <div class="field">
+      <label>Emoji</label>
+      <div class="emoji-row">
+        <button class="emoji-btn" data-emoji="🗡️">🗡️</button>
+        <button class="emoji-btn" data-emoji="🛡️">🛡️</button>
+        <button class="emoji-btn" data-emoji="🍏">🍏</button>
+        <button class="emoji-btn" data-emoji="🌿">🌿</button>
+        <button class="emoji-btn" data-emoji="⚡">⚡</button>
+        <button class="emoji-btn" data-emoji="🔥">🔥</button>
+        <button class="emoji-btn" data-emoji="🌟">🌟</button>
+        <button class="emoji-btn" data-emoji="🦊">🦊</button>
+        <button class="emoji-btn" data-emoji="🤖">🤖</button>
+        <button class="emoji-btn" data-emoji="👁️">👁️</button>
+      </div>
+      <input type="text" id="agent-emoji-custom" placeholder="Or type your own emoji" style="margin-top:12px" maxlength="4">
+    </div>
+
+    <div class="field">
+      <label>Personality</label>
+      <textarea id="agent-soul" placeholder="e.g. Loyal, practical, action-oriented. Gets things done without overthinking. Speaks plainly and values results over theory."></textarea>
+      <p class="helper">This shapes the agent's SOUL.md — how it thinks and speaks.</p>
+    </div>
+
+    <div class="buttons">
+      <button class="btn btn-primary" onclick="nextStep()">Continue →</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Model -->
+  <div class="section" id="step-1">
+    <h2>Model</h2>
+    <p class="hint">Pick the LLM that powers this agent.</p>
+
+    <div class="field">
+      <label>Model</label>
+      <select id="agent-model">
+        <option value="anthropic/claude-sonnet-4-5" selected>Claude Sonnet 4.5 — fast, capable, cost-efficient</option>
+        <option value="anthropic/claude-opus-4-5">Claude Opus 4.5 — most capable, higher cost</option>
+      </select>
+      <p class="helper">Sonnet is recommended for most agents. Use Opus for complex reasoning tasks.</p>
+    </div>
+
+    <div class="buttons">
+      <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+      <button class="btn btn-primary" onclick="nextStep()">Continue →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Channel -->
+  <div class="section" id="step-2">
+    <h2>Telegram Channel</h2>
+    <p class="hint">Give this agent its own Telegram bot so you can chat with it directly.</p>
+
+    <div class="instructions">
+      <h3>Create a Telegram Bot</h3>
+      <ol>
+        <li>Open Telegram and go to <a href="https://t.me/BotFather" target="_blank">@BotFather</a></li>
+        <li>Send <code>/newbot</code></li>
+        <li>Choose a display name (e.g. <strong id="botfather-name">Agent Name</strong>)</li>
+        <li>Choose a username ending in <code>bot</code> (e.g. <strong id="botfather-user">agentname_bot</strong>)</li>
+        <li>Copy the <strong>bot token</strong> BotFather gives you</li>
+      </ol>
+    </div>
+
+    <div class="field" id="f-token">
+      <label>Bot Token</label>
+      <input type="text" id="agent-token" placeholder="e.g. 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz" autocomplete="off">
+      <p class="helper">Paste the token from BotFather. It looks like <code>123456:ABC-DEF...</code></p>
+      <p class="error-msg">Token format looks wrong — should be numbers:letters</p>
+    </div>
+
+    <div>
+      <span class="skip-link" onclick="skipChannel()">Skip — I'll set up a channel later</span>
+    </div>
+
+    <div class="buttons">
+      <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+      <button class="btn btn-primary" onclick="nextStep()">Continue →</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Review -->
+  <div class="section" id="step-3">
+    <h2>Review & Create</h2>
+    <p class="hint">Everything look good?</p>
+
+    <div class="review-card" id="review-card"></div>
+
+    <div class="buttons">
+      <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+      <button class="btn btn-primary" id="create-btn" onclick="createAgent()">
+        <i data-lucide="rocket"></i> Create Agent
+      </button>
+    </div>
+  </div>
+
+  <!-- Creating state -->
+  <div class="section" id="step-creating">
+    <div class="creating-state">
+      <div class="spinner"></div>
+      <p>Creating your agent...</p>
+      <div class="log" id="create-log"></div>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="section" id="step-done">
+    <div class="result">
+      <div class="icon" id="result-icon">🎉</div>
+      <h2 id="result-title">Agent Created!</h2>
+      <p id="result-msg"></p>
+      <div class="actions">
+        <a href="/" class="btn btn-secondary">← Dashboard</a>
+        <button class="btn btn-primary" onclick="location.href='/create.html'">Create Another</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentStep = 0;
+let selectedEmoji = '';
+let skipTelegram = false;
+
+// Emoji picker
+document.querySelectorAll('.emoji-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedEmoji = btn.dataset.emoji;
+    document.getElementById('agent-emoji-custom').value = '';
+  });
+});
+document.getElementById('agent-emoji-custom').addEventListener('input', (e) => {
+  if (e.target.value) {
+    document.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+    selectedEmoji = e.target.value;
+  }
+});
+
+// Update BotFather hints when name changes
+document.getElementById('agent-name').addEventListener('input', (e) => {
+  const name = e.target.value.trim();
+  const el1 = document.getElementById('botfather-name');
+  const el2 = document.getElementById('botfather-user');
+  if (name) {
+    el1.textContent = name;
+    el2.textContent = name.toLowerCase().replace(/[^a-z0-9]/g, '') + '_bot';
+  }
+});
+
+function getEmoji() {
+  return selectedEmoji || document.getElementById('agent-emoji-custom').value || '🤖';
+}
+
+function getData() {
+  return {
+    name: document.getElementById('agent-name').value.trim(),
+    emoji: getEmoji(),
+    soul: document.getElementById('agent-soul').value.trim(),
+    model: document.getElementById('agent-model').value,
+    telegramToken: skipTelegram ? '' : document.getElementById('agent-token').value.trim(),
+  };
+}
+
+function validate(step) {
+  if (step === 0) {
+    const name = document.getElementById('agent-name').value.trim();
+    const field = document.getElementById('f-name');
+    if (!name) { field.classList.add('error'); return false; }
+    field.classList.remove('error');
+    return true;
+  }
+  if (step === 2 && !skipTelegram) {
+    const token = document.getElementById('agent-token').value.trim();
+    if (!token) return true; // allow empty, they'll skip
+    const field = document.getElementById('f-token');
+    if (!/^\d+:[A-Za-z0-9_-]+$/.test(token)) { field.classList.add('error'); return false; }
+    field.classList.remove('error');
+    return true;
+  }
+  return true;
+}
+
+function skipChannel() {
+  skipTelegram = true;
+  nextStep();
+}
+
+function showStep(n) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(`step-${n}`).classList.add('active');
+  document.querySelectorAll('.step-dot').forEach((d, i) => {
+    d.classList.remove('active', 'done');
+    if (i < n) d.classList.add('done');
+    if (i === n) d.classList.add('active');
+  });
+}
+
+function nextStep() {
+  if (!validate(currentStep)) return;
+  if (currentStep === 2 && !skipTelegram && !document.getElementById('agent-token').value.trim()) {
+    skipTelegram = true;
+  }
+  currentStep++;
+  if (currentStep === 3) buildReview();
+  showStep(currentStep);
+}
+
+function prevStep() {
+  if (currentStep > 0) { currentStep--; skipTelegram = false; showStep(currentStep); }
+}
+
+function buildReview() {
+  const d = getData();
+  const card = document.getElementById('review-card');
+  card.innerHTML = `
+    <div class="review-row"><span class="review-label">Name</span><span class="review-value">${d.emoji} ${d.name}</span></div>
+    <div class="review-row"><span class="review-label">Personality</span><span class="review-value">${d.soul || '(default)'}</span></div>
+    <div class="review-row"><span class="review-label">Model</span><span class="review-value">${d.model.split('/')[1]}</span></div>
+    <div class="review-row"><span class="review-label">Telegram</span><span class="review-value">${d.telegramToken ? '✅ Connected' : '⏭️ Skipped'}</span></div>
+    <div class="review-row"><span class="review-label">Workspace</span><span class="review-value">~/clawd-agents/${d.name.toLowerCase()}</span></div>
+  `;
+}
+
+function addLog(msg) {
+  const log = document.getElementById('create-log');
+  const div = document.createElement('div');
+  div.textContent = `> ${msg}`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function createAgent() {
+  const d = getData();
+  const btn = document.getElementById('create-btn');
+  btn.disabled = true;
+
+  showStep('creating');
+  addLog(`Creating ${d.name}...`);
+
+  try {
+    const res = await fetch('/api/create-agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(d),
+    });
+
+    const result = await res.json();
+
+    if (result.steps) {
+      for (const step of result.steps) {
+        addLog(step);
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+
+    if (result.ok) {
+      addLog('Done!');
+      await new Promise(r => setTimeout(r, 500));
+      document.getElementById('result-icon').textContent = d.emoji;
+      document.getElementById('result-title').textContent = `${d.name} is alive!`;
+      document.getElementById('result-msg').textContent = result.message || 'Your agent is ready. Head back to Clawd Control to see them.';
+      showStep('done');
+    } else {
+      addLog(`Error: ${result.error}`);
+      btn.disabled = false;
+      currentStep = 3;
+    }
+  } catch (err) {
+    addLog(`Error: ${err.message}`);
+    btn.disabled = false;
+    currentStep = 3;
+  }
+}
+
+</script>
+</div>
+</main>
+<script src="/layout.js"></script>
+<script src="/lucide.min.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# Secrets & local config
+auth.json
+agents.json
+
+# Dependencies
+node_modules/
+
+# Reports & generated data
+reports/
+*.report.json
+
+# Local/personal files
+gandalf-report.json
+gandalf-view.html
+pull-reports.sh
+MVP-PLAN.md
+
+# OS
+.DS_Store
+Thumbs.db
