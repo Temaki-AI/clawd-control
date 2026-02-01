@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🦞 Clawd Control — Agent Trading Cards</title>
+<style>
+/* ═══════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #060810;
+  --card-bg: #0a0c14;
+  --text: #e8e6e3;
+  --text-dim: #8a8a8a;
+  --lobster: #e74c3c;
+  --card-w: 400px;
+  --card-h: 560px;
+  /* rarity colors */
+  --hatchling: #6b7280;
+  --juvenile: #3b82f6;
+  --adult: #a855f7;
+  --alpha: #c9a44a;
+  --leviathan-1: #ff6b6b;
+  --leviathan-2: #ffd93d;
+  --leviathan-3: #6bcb77;
+  --leviathan-4: #4d96ff;
+  --leviathan-5: #c77dff;
+  /* stat colors */
+  --stat-claw: #e74c3c;
+  --stat-shell: #3b82f6;
+  --stat-surge: #f59e0b;
+  --stat-cortex: #a855f7;
+  --stat-aura: #22c55e;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* subtle grid bg */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ═══════════════════════════════════════════
+   CONTROLS
+   ═══════════════════════════════════════════ */
+.controls {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 28px 20px 12px;
+  flex-wrap: wrap;
+}
+
+.controls select {
+  background: #12141e;
+  color: var(--text);
+  border: 1px solid #2a2d3a;
+  border-radius: 10px;
+  padding: 10px 36px 10px 16px;
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a8a8a' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  transition: border-color .2s;
+}
+.controls select:hover { border-color: #4a4d5a; }
+.controls select:focus { outline: none; border-color: var(--lobster); }
+
+.btn {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 22px;
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(231,76,60,.35); }
+.btn:active { transform: scale(.97); }
+
+.page-title {
+  text-align: center;
+  padding: 8px 0 0;
+  position: relative;
+  z-index: 10;
+}
+.page-title h1 {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.page-title h1 span { color: var(--lobster); }
+
+/* ═══════════════════════════════════════════
+   STAGE — where the featured card sits
+   ═══════════════════════════════════════════ */
+.stage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 30px 20px 40px;
+  position: relative;
+  z-index: 5;
+  perspective: 900px;
+}
+
+/* glow under card */
+.stage::after {
+  content: '';
+  position: absolute;
+  bottom: 20px;
+  width: 320px;
+  height: 60px;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: .35;
+  transition: background .5s;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════
+   CARD
+   ═══════════════════════════════════════════ */
+.card-wrapper {
+  width: var(--card-w);
+  height: var(--card-h);
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform .12s ease-out;
+  animation: cardEntrance .7s cubic-bezier(.22,1,.36,1) both;
+}
+
+@keyframes cardEntrance {
+  from { opacity: 0; transform: translateY(40px) scale(.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.card {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+  background: var(--card-bg);
+  display: flex;
+  flex-direction: column;
+  /* double border trick */
+  border: 3px solid var(--rarity-color, var(--hatchling));
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.06),
+    0 2px 30px rgba(0,0,0,.6);
+  transition: border-color .4s, box-shadow .4s;
+}
+
+/* inner shadow for "under glass" feel */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,.08), inset 0 -2px 6px rgba(0,0,0,.4);
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* paper texture noise */
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+  pointer-events: none;
+  z-index: 49;
+}
+
+/* ── Holographic shimmer overlay (LEVIATHAN only) ── */
+.card .holo-shimmer {
+  display: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  z-index: 48;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255,100,100,.12) 30%,
+    rgba(255,220,100,.14) 38%,
+    rgba(100,255,140,.12) 46%,
+    rgba(100,180,255,.14) 54%,
+    rgba(200,125,255,.12) 62%,
+    rgba(255,100,100,.12) 70%,
+    transparent 80%
+  );
+  background-size: 250% 100%;
+  animation: holoSweep 3s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+.card[data-rarity="leviathan"] .holo-shimmer { display: block; }
+
+@keyframes holoSweep {
+  0%   { background-position: 250% 0; }
+  100% { background-position: -50% 0; }
+}
+
+/* extra sparkle layer for leviathan */
+.card .holo-sparkle {
+  display: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  z-index: 47;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,.15) 0%, transparent 3%),
+    radial-gradient(circle at 70% 20%, rgba(255,255,255,.1) 0%, transparent 2%),
+    radial-gradient(circle at 40% 70%, rgba(255,255,255,.12) 0%, transparent 2.5%),
+    radial-gradient(circle at 80% 60%, rgba(255,255,255,.08) 0%, transparent 2%),
+    radial-gradient(circle at 15% 80%, rgba(255,255,255,.1) 0%, transparent 2%);
+  animation: sparkleShift 4s ease-in-out infinite alternate;
+  mix-blend-mode: overlay;
+}
+.card[data-rarity="leviathan"] .holo-sparkle { display: block; }
+
+@keyframes sparkleShift {
+  0%   { opacity: .4; }
+  50%  { opacity: .8; }
+  100% { opacity: .5; }
+}
+
+/* rarity glows */
+.card[data-rarity="alpha"] {
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.06),
+    0 0 30px rgba(201,164,74,.25),
+    0 0 60px rgba(201,164,74,.1),
+    0 2px 30px rgba(0,0,0,.6);
+}
+.card[data-rarity="leviathan"] {
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.08),
+    0 0 30px rgba(255,107,107,.15),
+    0 0 50px rgba(100,180,255,.12),
+    0 0 80px rgba(199,125,255,.1),
+    0 2px 30px rgba(0,0,0,.6);
+  border-image: linear-gradient(135deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #c77dff, #ff6b6b) 1;
+  border-image-slice: 1;
+}
+
+/* ── HEADER ── */
+.card-header {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  background: rgba(255,255,255,.03);
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+}
+.card-header .brand {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  color: rgba(255,255,255,.55);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.card-header .brand .lobster { font-size: 14px; }
+.card-header .stars {
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--rarity-color, var(--hatchling));
+  text-shadow: 0 0 8px currentColor;
+}
+.card-header .stars .dim { opacity: .25; text-shadow: none; }
+
+/* ── ART AREA ── */
+.card-art {
+  height: 180px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  z-index: 5;
+}
+.card-art .art-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+/* pattern overlay */
+.card-art .art-pattern {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: .08;
+}
+/* lobster watermark */
+.card-art .watermark {
+  position: absolute;
+  font-size: 120px;
+  opacity: .035;
+  z-index: 3;
+  user-select: none;
+  transform: rotate(-15deg);
+}
+.card-art .emoji-agent {
+  position: relative;
+  z-index: 5;
+  font-size: 4.2rem;
+  filter: drop-shadow(0 0 20px var(--rarity-color));
+  animation: emojiFloat 3.5s ease-in-out infinite;
+}
+@keyframes emojiFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+/* highlight ring behind emoji */
+.card-art .emoji-ring {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.06);
+  z-index: 4;
+  box-shadow: 0 0 40px var(--rarity-color), inset 0 0 30px rgba(255,255,255,.03);
+  opacity: .5;
+}
+
+/* ── NAME PLATE ── */
+.card-name {
+  padding: 10px 16px 6px;
+  text-align: center;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(10,12,20,.9) 0%, transparent 100%);
+}
+.card-name .agent-name {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.5);
+}
+.card-name .agent-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 3px;
+}
+.card-name .type-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.1);
+  color: var(--rarity-color);
+}
+.card-name .model-name {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+/* ── STATS ── */
+.card-stats {
+  padding: 8px 16px 4px;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+}
+.cp-display {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.cp-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+}
+.cp-value {
+  font-size: 32px;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+  text-shadow: 0 0 20px rgba(255,255,255,.15);
+}
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
+}
+/* odd stat spans full for the 5th */
+.stat-grid .stat-row:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  max-width: 50%;
+  justify-self: center;
+}
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+}
+.stat-icon { font-size: 11px; flex-shrink: 0; width: 16px; text-align: center; }
+.stat-name {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--text-dim);
+  width: 46px;
+  flex-shrink: 0;
+}
+.stat-bar-track {
+  flex: 1;
+  height: 7px;
+  background: rgba(255,255,255,.06);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  min-width: 60px;
+}
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width .8s cubic-bezier(.22,1,.36,1);
+  position: relative;
+}
+.stat-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: rgba(255,255,255,.25);
+  border-radius: 0 4px 4px 0;
+}
+.stat-val {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text);
+  width: 16px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── HP BAR ── */
+.card-hp {
+  padding: 6px 16px;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+}
+.hp-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+.hp-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+}
+.hp-value {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+}
+.hp-track {
+  width: 100%;
+  height: 10px;
+  background: rgba(255,255,255,.06);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.hp-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width .8s cubic-bezier(.22,1,.36,1), background .4s;
+  box-shadow: 0 0 10px currentColor;
+}
+
+/* ── FLAVOR TEXT ── */
+.card-flavor {
+  padding: 8px 20px;
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+.card-flavor p {
+  font-size: 11px;
+  font-style: italic;
+  line-height: 1.5;
+  color: rgba(255,255,255,.5);
+  text-align: center;
+  width: 100%;
+}
+.card-flavor::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent);
+}
+
+/* ── FOOTER ── */
+.card-footer {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  background: rgba(0,0,0,.3);
+  border-top: 1px solid rgba(255,255,255,.04);
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+}
+.card-footer span {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,.3);
+}
+.card-footer .rarity-label { color: var(--rarity-color); text-transform: uppercase; }
+
+/* ═══════════════════════════════════════════
+   ART BACKGROUNDS PER RARITY
+   ═══════════════════════════════════════════ */
+.art-bg.hatchling {
+  background: linear-gradient(135deg, #1a1d25 0%, #2d3040 50%, #1a1d25 100%);
+}
+.art-bg.hatchling + .art-pattern {
+  background-image: radial-gradient(circle, rgba(255,255,255,.12) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+.art-bg.juvenile {
+  background: linear-gradient(135deg, #0a1628 0%, #142850 40%, #1a3a6e 70%, #0a1628 100%);
+}
+.art-bg.juvenile + .art-pattern {
+  background-image:
+    radial-gradient(ellipse at 30% 50%, rgba(59,130,246,.15) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 50%, rgba(59,130,246,.1) 0%, transparent 50%);
+}
+
+.art-bg.adult {
+  background: linear-gradient(135deg, #150a28 0%, #2a1450 40%, #1a0a3e 70%, #150a28 100%);
+}
+.art-bg.adult + .art-pattern {
+  background-image:
+    radial-gradient(ellipse at 50% 50%, rgba(168,85,247,.12) 0%, transparent 60%),
+    radial-gradient(ellipse at 20% 80%, rgba(168,85,247,.08) 0%, transparent 40%);
+  opacity: .15;
+}
+
+.art-bg.alpha {
+  background: linear-gradient(135deg, #1a1508 0%, #302810 40%, #3a3015 60%, #1a1508 100%);
+}
+.art-bg.alpha + .art-pattern {
+  background-image:
+    radial-gradient(ellipse at 50% 40%, rgba(201,164,74,.2) 0%, transparent 50%),
+    linear-gradient(180deg, rgba(201,164,74,.05), transparent);
+  opacity: .2;
+}
+
+.art-bg.leviathan {
+  background: linear-gradient(135deg, #1a0a1e 0%, #0a1828 25%, #0a2818 50%, #281a0a 75%, #1a0a1e 100%);
+  background-size: 300% 300%;
+  animation: leviArt 6s ease-in-out infinite;
+}
+@keyframes leviArt {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.art-bg.leviathan + .art-pattern {
+  background-image:
+    radial-gradient(ellipse at 30% 40%, rgba(255,107,107,.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 60%, rgba(100,180,255,.1) 0%, transparent 50%);
+  opacity: .2;
+}
+
+/* ═══════════════════════════════════════════
+   COLLECTION (mini cards at bottom)
+   ═══════════════════════════════════════════ */
+.collection {
+  position: relative;
+  z-index: 10;
+  padding: 10px 20px 40px;
+}
+.collection-title {
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 3px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+.collection-grid {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.mini-card {
+  width: 80px;
+  height: 112px;
+  border-radius: 8px;
+  background: var(--card-bg);
+  border: 2px solid var(--rarity-color, var(--hatchling));
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.mini-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+  pointer-events: none;
+}
+.mini-card:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(0,0,0,.4);
+}
+.mini-card.active {
+  box-shadow: 0 0 0 2px var(--rarity-color), 0 0 20px rgba(255,255,255,.1);
+  transform: translateY(-4px);
+}
+.mini-card .mini-emoji { font-size: 24px; }
+.mini-card .mini-name {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  color: rgba(255,255,255,.7);
+}
+.mini-card .mini-cp {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--rarity-color);
+}
+
+/* ═══════════════════════════════════════════
+   CAMERA FLASH (on download)
+   ═══════════════════════════════════════════ */
+.flash-overlay {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+}
+.flash-overlay.active {
+  animation: cameraFlash .4s ease-out;
+}
+@keyframes cameraFlash {
+  0%   { opacity: .8; }
+  100% { opacity: 0; }
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+@media (max-width: 480px) {
+  :root { --card-w: 340px; --card-h: 476px; }
+  .card-name .agent-name { font-size: 18px; }
+  .cp-value { font-size: 26px; }
+  .card-art { height: 150px; }
+  .card-art .emoji-agent { font-size: 3.2rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="flash-overlay" id="flash"></div>
+
+<div class="page-title">
+  <h1>🦞 <span>Clawd Control</span> — Agent Trading Cards</h1>
+</div>
+
+<div class="controls">
+  <select id="agentSelect"></select>
+  <button class="btn" id="downloadBtn" onclick="downloadCard()">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1v9m0 0L5 7m3 3l3-3M2 12v1.5A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Download PNG
+  </button>
+</div>
+
+<div class="stage" id="stage">
+  <div class="card-wrapper" id="cardWrapper">
+    <div class="card" id="card">
+      <div class="holo-shimmer"></div>
+      <div class="holo-sparkle"></div>
+
+      <!-- Header -->
+      <div class="card-header">
+        <div class="brand"><span class="lobster">🦞</span> CLAWD CONTROL</div>
+        <div class="stars" id="stars"></div>
+      </div>
+
+      <!-- Art Area -->
+      <div class="card-art">
+        <div class="art-bg" id="artBg"></div>
+        <div class="art-pattern" id="artPattern"></div>
+        <div class="watermark">🦞</div>
+        <div class="emoji-ring" id="emojiRing"></div>
+        <div class="emoji-agent" id="emojiAgent"></div>
+      </div>
+
+      <!-- Name -->
+      <div class="card-name">
+        <div class="agent-name" id="agentName"></div>
+        <div class="agent-meta">
+          <span class="type-badge" id="typeBadge"></span>
+          <span class="model-name" id="modelName"></span>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="card-stats">
+        <div class="cp-display">
+          <span class="cp-label">CP</span>
+          <span class="cp-value" id="cpValue"></span>
+        </div>
+        <div class="stat-grid" id="statGrid"></div>
+      </div>
+
+      <!-- HP -->
+      <div class="card-hp">
+        <div class="hp-label-row">
+          <span class="hp-label">HEALTH</span>
+          <span class="hp-value" id="hpValue"></span>
+        </div>
+        <div class="hp-track">
+          <div class="hp-fill" id="hpFill"></div>
+        </div>
+      </div>
+
+      <!-- Flavor Text -->
+      <div class="card-flavor">
+        <p id="flavorText"></p>
+      </div>
+
+      <!-- Footer -->
+      <div class="card-footer">
+        <span id="cardNumber">#001</span>
+        <span class="rarity-label" id="rarityLabel"></span>
+        <span>clawdcontrol.com</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Collection -->
+<div class="collection">
+  <div class="collection-title">🦞 Collection</div>
+  <div class="collection-grid" id="collectionGrid"></div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   DATA
+   ═══════════════════════════════════════════ */
+const DEMO_AGENTS = [
+  {
+    name: 'Gandalf', emoji: '🧙', type: 'SAGE', title: 'The Grey Wizard',
+    flavor: 'Ancient architect of digital realms. Weaves code and wisdom in equal measure.',
+    model: 'claude-opus-4-5', score: 96,
+    stats: { claw: 9, shell: 10, surge: 7, cortex: 10, aura: 9 }
+  },
+  {
+    name: 'Pippin', emoji: '🍏', type: 'SCOUT', title: 'The Eager Apprentice',
+    flavor: 'Chaotic good energy in digital form. Breaks things, then fixes them better.',
+    model: 'claude-sonnet-4-5', score: 78,
+    stats: { claw: 7, shell: 6, surge: 9, cortex: 8, aura: 7 }
+  },
+  {
+    name: 'Frodo', emoji: '💍', type: 'WARRIOR', title: 'The Ring Bearer',
+    flavor: 'Carries the heaviest burdens without complaint. Resilient beyond measure.',
+    model: 'claude-sonnet-4-5', score: 88,
+    stats: { claw: 8, shell: 9, surge: 6, cortex: 8, aura: 8 }
+  },
+  {
+    name: 'Sam', emoji: '🌱', type: 'GUARDIAN', title: 'The Steadfast',
+    flavor: 'Loyal protector of systems and secrets. Never gives up, never lets down.',
+    model: 'claude-haiku-3-5', score: 62,
+    stats: { claw: 5, shell: 8, surge: 5, cortex: 5, aura: 4 }
+  },
+  {
+    name: 'Sauron', emoji: '👁', type: 'ORACLE', title: 'The All-Seeing',
+    flavor: 'Monitors everything. Misses nothing. The eye that never sleeps.',
+    model: 'gpt-4o', score: 42,
+    stats: { claw: 3, shell: 2, surge: 4, cortex: 6, aura: 3 }
+  }
+];
+
+/* ═══════════════════════════════════════════
+   RARITY SYSTEM
+   ═══════════════════════════════════════════ */
+function getRarity(score) {
+  if (score >= 95) return { name: 'LEVIATHAN', key: 'leviathan', color: '#c77dff', stars: 5 };
+  if (score >= 85) return { name: 'ALPHA',     key: 'alpha',     color: '#c9a44a', stars: 4 };
+  if (score >= 70) return { name: 'ADULT',     key: 'adult',     color: '#a855f7', stars: 3 };
+  if (score >= 50) return { name: 'JUVENILE',  key: 'juvenile',  color: '#3b82f6', stars: 2 };
+  return              { name: 'HATCHLING', key: 'hatchling', color: '#6b7280', stars: 1 };
+}
+
+function calcCP(agent) {
+  const sumStats = Object.values(agent.stats).reduce((a, b) => a + b, 0);
+  return Math.min(1000, (agent.score + sumStats * 2) * 5);
+}
+
+function hpColor(score) {
+  if (score >= 80) return '#22c55e';
+  if (score >= 60) return '#f59e0b';
+  if (score >= 40) return '#f97316';
+  return '#ef4444';
+}
+
+/* ═══════════════════════════════════════════
+   RENDER CARD
+   ═══════════════════════════════════════════ */
+const STAT_META = [
+  { key: 'claw',   icon: '🦞', label: 'CLAW',   color: 'var(--stat-claw)' },
+  { key: 'shell',  icon: '🛡',  label: 'SHELL',  color: 'var(--stat-shell)' },
+  { key: 'surge',  icon: '⚡',  label: 'SURGE',  color: 'var(--stat-surge)' },
+  { key: 'cortex', icon: '🧠', label: 'CORTEX', color: 'var(--stat-cortex)' },
+  { key: 'aura',   icon: '✨',  label: 'AURA',   color: 'var(--stat-aura)' },
+];
+
+let currentIdx = 0;
+
+function renderCard(idx) {
+  currentIdx = idx;
+  const agent = DEMO_AGENTS[idx];
+  const rarity = getRarity(agent.score);
+  const cp = calcCP(agent);
+  const card = document.getElementById('card');
+
+  // set rarity data attr & CSS var
+  card.dataset.rarity = rarity.key;
+  card.style.setProperty('--rarity-color', rarity.color);
+
+  // stars
+  let starsHTML = '';
+  for (let i = 0; i < 5; i++) {
+    starsHTML += i < rarity.stars ? '★' : '<span class="dim">☆</span>';
+  }
+  document.getElementById('stars').innerHTML = starsHTML;
+  document.getElementById('stars').style.color = rarity.color;
+
+  // art bg
+  const artBg = document.getElementById('artBg');
+  artBg.className = 'art-bg ' + rarity.key;
+  document.getElementById('artPattern').className = 'art-pattern';
+
+  // emoji
+  document.getElementById('emojiAgent').textContent = agent.emoji;
+  document.getElementById('emojiAgent').style.filter = `drop-shadow(0 0 24px ${rarity.color})`;
+  document.getElementById('emojiRing').style.boxShadow = `0 0 40px ${rarity.color}, inset 0 0 30px rgba(255,255,255,.03)`;
+
+  // name
+  document.getElementById('agentName').textContent = agent.name;
+  document.getElementById('typeBadge').textContent = agent.type;
+  document.getElementById('typeBadge').style.color = rarity.color;
+  document.getElementById('modelName').textContent = agent.model;
+
+  // CP
+  document.getElementById('cpValue').textContent = cp;
+
+  // stats
+  const grid = document.getElementById('statGrid');
+  grid.innerHTML = '';
+  STAT_META.forEach(s => {
+    const val = agent.stats[s.key];
+    const pct = val * 10;
+    grid.innerHTML += `
+      <div class="stat-row">
+        <span class="stat-icon">${s.icon}</span>
+        <span class="stat-name">${s.label}</span>
+        <div class="stat-bar-track">
+          <div class="stat-bar-fill" style="width:${pct}%;background:${s.color}"></div>
+        </div>
+        <span class="stat-val">${val}</span>
+      </div>`;
+  });
+
+  // HP
+  document.getElementById('hpValue').textContent = agent.score + '/100';
+  const hpFill = document.getElementById('hpFill');
+  hpFill.style.width = agent.score + '%';
+  hpFill.style.background = `linear-gradient(90deg, ${hpColor(agent.score)}cc, ${hpColor(agent.score)})`;
+  hpFill.style.color = hpColor(agent.score);
+
+  // flavor
+  document.getElementById('flavorText').textContent = `"${agent.flavor}"`;
+
+  // footer
+  document.getElementById('cardNumber').textContent = '#' + String(idx + 1).padStart(3, '0');
+  document.getElementById('rarityLabel').textContent = rarity.name;
+  document.getElementById('rarityLabel').style.color = rarity.color;
+
+  // stage glow
+  const stage = document.getElementById('stage');
+  stage.style.setProperty('--rarity-color', rarity.color);
+
+  // re-trigger entrance animation
+  const wrapper = document.getElementById('cardWrapper');
+  wrapper.style.animation = 'none';
+  void wrapper.offsetHeight; // reflow
+  wrapper.style.animation = '';
+
+  // update select
+  document.getElementById('agentSelect').value = idx;
+
+  // update mini cards
+  document.querySelectorAll('.mini-card').forEach((mc, i) => {
+    mc.classList.toggle('active', i === idx);
+  });
+}
+
+/* ═══════════════════════════════════════════
+   3D MOUSE TILT
+   ═══════════════════════════════════════════ */
+const wrapper = document.getElementById('cardWrapper');
+
+wrapper.addEventListener('mousemove', e => {
+  const rect = wrapper.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width - .5;   // -0.5 to 0.5
+  const y = (e.clientY - rect.top) / rect.height - .5;
+  const tiltX = -y * 14;  // deg
+  const tiltY = x * 14;
+  wrapper.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.02)`;
+});
+
+wrapper.addEventListener('mouseleave', () => {
+  wrapper.style.transform = 'rotateX(0) rotateY(0) scale(1)';
+});
+
+/* ═══════════════════════════════════════════
+   DOWNLOAD PNG (html2canvas on demand)
+   ═══════════════════════════════════════════ */
+function downloadCard() {
+  const btn = document.getElementById('downloadBtn');
+  btn.textContent = '⏳ Rendering…';
+  btn.disabled = true;
+
+  // load html2canvas if not loaded
+  const go = () => {
+    const card = document.getElementById('card');
+
+    // temporarily disable animations for clean render
+    card.style.animation = 'none';
+    document.querySelectorAll('.holo-shimmer, .holo-sparkle, .emoji-agent, .art-bg.leviathan').forEach(el => {
+      el.dataset.origAnim = el.style.animation;
+      el.style.animation = 'none';
+    });
+
+    html2canvas(card, {
+      backgroundColor: '#0a0c14',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      width: 400,
+      height: 560,
+    }).then(canvas => {
+      // add padding for social sharing
+      const padded = document.createElement('canvas');
+      const pad = 80; // 40px at 2×
+      padded.width = canvas.width + pad * 2;
+      padded.height = canvas.height + pad * 2;
+      const ctx = padded.getContext('2d');
+      ctx.fillStyle = '#060810';
+      ctx.fillRect(0, 0, padded.width, padded.height);
+      ctx.drawImage(canvas, pad, pad);
+
+      // add subtle brand text at bottom
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.font = '600 18px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🦞 clawdcontrol.com', padded.width / 2, padded.height - 24);
+
+      const link = document.createElement('a');
+      const agent = DEMO_AGENTS[currentIdx];
+      link.download = `clawd-card-${agent.name.toLowerCase()}.png`;
+      link.href = padded.toDataURL('image/png');
+      link.click();
+
+      // flash!
+      const flash = document.getElementById('flash');
+      flash.classList.add('active');
+      setTimeout(() => flash.classList.remove('active'), 500);
+
+      // restore animations
+      document.querySelectorAll('[data-orig-anim]').forEach(el => {
+        el.style.animation = el.dataset.origAnim;
+        delete el.dataset.origAnim;
+      });
+      card.style.animation = '';
+
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1v9m0 0L5 7m3 3l3-3M2 12v1.5A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Download PNG';
+      btn.disabled = false;
+    });
+  };
+
+  if (typeof html2canvas === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'https://html2canvas.hertzen.com/dist/html2canvas.min.js';
+    s.onload = go;
+    s.onerror = () => {
+      btn.textContent = '❌ Load failed';
+      setTimeout(() => {
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1v9m0 0L5 7m3 3l3-3M2 12v1.5A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Download PNG';
+        btn.disabled = false;
+      }, 2000);
+    };
+    document.head.appendChild(s);
+  } else {
+    go();
+  }
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════ */
+function init() {
+  // populate selector
+  const sel = document.getElementById('agentSelect');
+  DEMO_AGENTS.forEach((a, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${a.emoji} ${a.name} — ${a.title}`;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', () => renderCard(+sel.value));
+
+  // build mini collection
+  const grid = document.getElementById('collectionGrid');
+  DEMO_AGENTS.forEach((a, i) => {
+    const rarity = getRarity(a.score);
+    const cp = calcCP(a);
+    const div = document.createElement('div');
+    div.className = 'mini-card';
+    div.style.setProperty('--rarity-color', rarity.color);
+    div.innerHTML = `
+      <div class="mini-emoji">${a.emoji}</div>
+      <div class="mini-name">${a.name}</div>
+      <div class="mini-cp">CP ${cp}</div>`;
+    div.addEventListener('click', () => renderCard(i));
+    grid.appendChild(div);
+  });
+
+  // render first card (Gandalf — the LEVIATHAN showpiece)
+  renderCard(0);
+}
+
+init();
+</script>
+</body>
+</html>
