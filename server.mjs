@@ -1198,48 +1198,12 @@ const server = createServer((req, res) => {
   // ── Crons ──
   if (path === '/api/crons' && req.method === 'GET') {
     try {
-      const configPath = join(process.env.HOME, '.clawdbot', 'clawdbot.json');
-      if (!existsSync(configPath)) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Config not found' }));
-        return;
-      }
-      
-      const config = JSON.parse(readFileSync(configPath, 'utf8'));
-      const token = config.gateway?.auth?.token;
-      const port = config.gateway?.port || 18789;
-      
-      if (!token) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Gateway token not found' }));
-        return;
-      }
-
-      // Proxy to gateway API
-      const gatewayUrl = `http://127.0.0.1:${port}/api/cron/list`;
-      const gatewayReq = http.request(gatewayUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      }, (gatewayRes) => {
-        let data = '';
-        gatewayRes.on('data', chunk => { data += chunk; });
-        gatewayRes.on('end', () => {
-          res.writeHead(gatewayRes.statusCode, { 'Content-Type': 'application/json' });
-          res.end(data);
-        });
-      });
-      
-      gatewayReq.on('error', (e) => {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: `Gateway request failed: ${e.message}` }));
-      });
-      
-      gatewayReq.end();
+      const output = execFileSync('clawdbot', ['cron', 'list', '--json'], { encoding: 'utf8', stdio: 'pipe', timeout: 10000 });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(output);
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: e.message }));
+      res.end(JSON.stringify({ error: `Failed to list cron jobs: ${e.message}` }));
     }
     return;
   }
