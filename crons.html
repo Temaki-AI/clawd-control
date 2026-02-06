@@ -225,6 +225,79 @@
 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .fade-up { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* ── View Toggle ───────────────────────── */
+.view-toggle {
+  display: flex; gap: 4px; margin-left: auto;
+  background: var(--bg-primary); border-radius: var(--radius-sm); padding: 3px;
+}
+.view-toggle-btn {
+  padding: 6px 12px; border: none; background: transparent;
+  color: var(--text-secondary); font-size: 0.75rem; font-weight: 600;
+  border-radius: var(--radius-sm); cursor: pointer;
+  display: flex; align-items: center; gap: 5px;
+  transition: all 0.2s ease;
+}
+.view-toggle-btn:hover { color: var(--text-primary); }
+.view-toggle-btn.active {
+  background: var(--accent); color: var(--bg-primary);
+}
+
+/* ── Calendar View ─────────────────────── */
+.calendar-container {
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px;
+}
+.calendar-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+}
+.calendar-title {
+  font-size: 1rem; font-weight: 700; color: var(--text-primary);
+}
+.calendar-nav {
+  display: flex; gap: 8px; align-items: center;
+}
+.calendar-nav-btn {
+  padding: 6px 10px; border: 1px solid var(--border-subtle);
+  background: var(--bg-primary); color: var(--text-secondary);
+  border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8rem;
+}
+.calendar-nav-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+.calendar-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+}
+.calendar-day-header {
+  text-align: center; font-size: 0.65rem; font-weight: 700;
+  color: var(--text-tertiary); padding: 8px 4px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.calendar-day {
+  min-height: 80px; padding: 6px; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); background: var(--bg-primary);
+  transition: all 0.2s ease; position: relative;
+}
+.calendar-day:hover { border-color: var(--border); }
+.calendar-day.other-month { opacity: 0.4; }
+.calendar-day.today { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--bg-primary)); }
+.calendar-day-number {
+  font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.calendar-day.today .calendar-day-number { color: var(--accent); }
+.calendar-day-jobs {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.calendar-job {
+  font-size: 0.6rem; padding: 2px 4px; border-radius: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer; transition: transform 0.1s ease;
+}
+.calendar-job:hover { transform: scale(1.02); }
+.calendar-job-count {
+  font-size: 0.55rem; color: var(--text-tertiary);
+  margin-top: 2px;
+}
 </style>
 </head>
 <body>
@@ -269,6 +342,14 @@
       <input type="checkbox" id="showDisabled" onchange="applyFilters()" checked>
       <span>Show disabled jobs</span>
     </label>
+    <div class="view-toggle">
+      <button class="view-toggle-btn active" id="viewTimeline" onclick="setView('timeline')">
+        <i data-lucide="clock" style="width:14px;height:14px"></i> Timeline
+      </button>
+      <button class="view-toggle-btn" id="viewCalendar" onclick="setView('calendar')">
+        <i data-lucide="calendar" style="width:14px;height:14px"></i> Calendar
+      </button>
+    </div>
   </div>
 
   <div class="timeline-container fade-up" style="animation-delay:.15s" id="timelineContainer">
@@ -281,6 +362,15 @@
     </div>
     <div class="timeline" id="timeline"></div>
     <div class="timeline-hour-markers" id="timelineMarkers"></div>
+  </div>
+
+  <div class="calendar-container fade-up" style="animation-delay:.15s; display:none" id="calendarContainer">
+    <div class="calendar-header">
+      <button class="calendar-nav-btn" onclick="changeMonth(-1)">← Prev</button>
+      <div class="calendar-title" id="calendarTitle">February 2026</div>
+      <button class="calendar-nav-btn" onclick="changeMonth(1)">Next →</button>
+    </div>
+    <div class="calendar-grid" id="calendarGrid"></div>
   </div>
 
   <div class="jobs-container fade-up" style="animation-delay:.2s" id="jobsContainer">
@@ -340,7 +430,8 @@ async function loadCrons(silent = false) {
   try {
     const res = await fetch('/api/crons');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    cronData = await res.json();
+    const raw = await res.json();
+    cronData = Array.isArray(raw) ? raw : (raw.jobs || []);
     
     // Enrich with agent info
     cronData = cronData.map(job => {
@@ -730,6 +821,192 @@ function generateAgentColors(jobs) {
     colorMap[id] = colors[idx % colors.length];
   });
   return colorMap;
+}
+
+// ═══════════════════════════════════════════
+// CALENDAR VIEW
+// ═══════════════════════════════════════════
+
+let currentView = 'timeline';
+let calendarDate = new Date();
+
+function setView(view) {
+  currentView = view;
+  $('#viewTimeline').classList.toggle('active', view === 'timeline');
+  $('#viewCalendar').classList.toggle('active', view === 'calendar');
+  $('#timelineContainer').style.display = view === 'timeline' ? 'block' : 'none';
+  $('#calendarContainer').style.display = view === 'calendar' ? 'block' : 'none';
+  
+  if (view === 'calendar') {
+    renderCalendar();
+  }
+  refreshIcons();
+}
+
+function changeMonth(delta) {
+  calendarDate.setMonth(calendarDate.getMonth() + delta);
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const grid = $('#calendarGrid');
+  const title = $('#calendarTitle');
+  
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December'];
+  title.textContent = `${monthNames[month]} ${year}`;
+  
+  // Get first day of month and total days
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  
+  // Project cron jobs onto the month
+  const jobsByDay = projectJobsToMonth(year, month);
+  const agentColors = generateAgentColors(cronData);
+  
+  // Build grid HTML
+  let html = '';
+  
+  // Day headers
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  dayNames.forEach(d => {
+    html += `<div class="calendar-day-header">${d}</div>`;
+  });
+  
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+  
+  // Previous month days
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const day = daysInPrevMonth - i;
+    html += `<div class="calendar-day other-month"><div class="calendar-day-number">${day}</div></div>`;
+  }
+  
+  // Current month days
+  for (let day = 1; day <= daysInMonth; day++) {
+    const isToday = isCurrentMonth && day === today.getDate();
+    const dayJobs = jobsByDay[day] || [];
+    
+    html += `<div class="calendar-day${isToday ? ' today' : ''}">`;
+    html += `<div class="calendar-day-number">${day}</div>`;
+    html += `<div class="calendar-day-jobs">`;
+    
+    // Show up to 3 jobs, then "+N more"
+    const maxShow = 3;
+    dayJobs.slice(0, maxShow).forEach(job => {
+      const color = agentColors[job.agentId] || '#888';
+      html += `<div class="calendar-job" style="background:${color};color:#fff" 
+                    title="${job.agentName}: ${job.name} at ${job.time}" 
+                    onclick="scrollToJob('${job.id}')">
+                ${job.agentEmoji} ${truncate(job.name, 12)}
+              </div>`;
+    });
+    
+    if (dayJobs.length > maxShow) {
+      html += `<div class="calendar-job-count">+${dayJobs.length - maxShow} more</div>`;
+    }
+    
+    html += `</div></div>`;
+  }
+  
+  // Next month days to fill grid
+  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+  const remaining = totalCells - firstDay - daysInMonth;
+  for (let i = 1; i <= remaining; i++) {
+    html += `<div class="calendar-day other-month"><div class="calendar-day-number">${i}</div></div>`;
+  }
+  
+  grid.innerHTML = html;
+}
+
+function projectJobsToMonth(year, month) {
+  const jobsByDay = {};
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  
+  cronData.filter(j => j.enabled).forEach(job => {
+    const schedule = job.schedule;
+    if (!schedule) return;
+    
+    if (schedule.kind === 'cron') {
+      // Parse cron expression: min hour dom mon dow
+      const parts = schedule.expr.split(' ');
+      if (parts.length < 5) return;
+      
+      const [minExpr, hourExpr, domExpr, monExpr, dowExpr] = parts;
+      
+      // Check if this job runs in this month
+      if (monExpr !== '*' && parseInt(monExpr) !== month + 1) return;
+      
+      // Iterate through days of month
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const dow = date.getDay();
+        
+        // Check day of week
+        if (dowExpr !== '*') {
+          const allowedDows = parseCronField(dowExpr, 0, 6);
+          if (!allowedDows.includes(dow)) continue;
+        }
+        
+        // Check day of month
+        if (domExpr !== '*') {
+          const allowedDoms = parseCronField(domExpr, 1, 31);
+          if (!allowedDoms.includes(day)) continue;
+        }
+        
+        // This job runs on this day
+        const hour = hourExpr === '*' ? 0 : parseInt(hourExpr);
+        const min = minExpr.startsWith('*/') ? 0 : (minExpr === '*' ? 0 : parseInt(minExpr));
+        
+        if (!jobsByDay[day]) jobsByDay[day] = [];
+        jobsByDay[day].push({
+          ...job,
+          time: `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`
+        });
+      }
+    } else if (schedule.kind === 'at') {
+      // One-time job
+      const runDate = new Date(schedule.at);
+      if (runDate.getFullYear() === year && runDate.getMonth() === month) {
+        const day = runDate.getDate();
+        if (!jobsByDay[day]) jobsByDay[day] = [];
+        jobsByDay[day].push({
+          ...job,
+          time: runDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+      }
+    }
+  });
+  
+  return jobsByDay;
+}
+
+function parseCronField(field, min, max) {
+  const values = [];
+  
+  // Handle */N
+  if (field.startsWith('*/')) {
+    const step = parseInt(field.substring(2));
+    for (let i = min; i <= max; i += step) values.push(i);
+    return values;
+  }
+  
+  // Handle comma-separated values
+  field.split(',').forEach(part => {
+    if (part.includes('-')) {
+      // Range: 1-5
+      const [start, end] = part.split('-').map(Number);
+      for (let i = start; i <= end; i++) values.push(i);
+    } else {
+      values.push(parseInt(part));
+    }
+  });
+  
+  return values;
 }
 
 </script>
