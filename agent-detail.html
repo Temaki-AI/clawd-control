@@ -168,6 +168,41 @@
   }
 
   /* Skill Item */
+  .skill-source {
+    font-size: 0.6rem; padding: 1px 6px; border-radius: var(--radius-sm);
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    margin-left: 8px;
+  }
+  .skill-source.local { background: var(--success-bg); color: var(--success); }
+  .skill-source.global { background: var(--accent-bg); color: var(--accent); }
+  .skill-header {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
+  }
+  .skill-header:hover { opacity: 0.8; }
+  .skill-expand-icon { 
+    color: var(--text-tertiary); transition: transform 0.2s; font-size: 0.75rem;
+  }
+  .skill-item.expanded .skill-expand-icon { transform: rotate(90deg); }
+  .skill-detail {
+    display: none; margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .skill-item.expanded .skill-detail { display: block; }
+  .skill-content {
+    font-size: 0.72rem; color: var(--text-secondary); white-space: pre-wrap;
+    font-family: var(--font-mono); background: var(--bg-primary);
+    padding: 8px 10px; border-radius: var(--radius-sm); max-height: 300px;
+    overflow-y: auto; line-height: 1.4;
+  }
+  .skill-scripts {
+    display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;
+  }
+  .skill-script-pill {
+    font-size: 0.62rem; padding: 2px 6px; border-radius: var(--radius-sm);
+    background: var(--bg-primary); color: var(--text-tertiary);
+    font-family: var(--font-mono);
+  }
   .skill-item {
     padding: 14px 16px;
     background: var(--bg-secondary);
@@ -412,6 +447,7 @@ function render() {
     { id: 'overview', icon: 'layout-dashboard', label: 'Overview' },
     { id: 'soul', icon: 'brain', label: 'Soul & Identity' },
     { id: 'skills', icon: 'wrench', label: 'Skills' },
+    { id: 'credentials', icon: 'key-round', label: 'Credentials' },
     { id: 'memory', icon: 'database', label: 'Memory' },
     { id: 'tasks', icon: 'clipboard-list', label: 'Tasks' },
     { id: 'sessions', icon: 'message-square', label: 'Sessions' },
@@ -438,6 +474,7 @@ function renderTab(id) {
     case 'overview': return renderOverview();
     case 'soul': return renderSoul();
     case 'skills': return renderSkills();
+    case 'credentials': return renderCredentials();
     case 'memory': return renderMemory();
     case 'tasks': return renderTasks();
     case 'sessions': return renderSessions();
@@ -541,15 +578,67 @@ function renderSkills() {
   if (data.skills.length === 0) {
     return '<div class="panel"><div class="empty">No skills installed</div></div>';
   }
-  return `<div class="panel"><h2><i data-lucide="wrench"></i> Installed Skills (${data.skills.length})</h2>` +
-    data.skills.map(s => `
-      <div class="skill-item">
-        <div>
-          <div class="skill-name">${esc(s.name)}</div>
-          ${s.description ? `<div class="skill-desc">${esc(s.description)}</div>` : ''}
+  const localCount = data.skills.filter(s => s.source === 'local').length;
+  const globalCount = data.skills.filter(s => s.source === 'global').length;
+  const subtitle = [localCount && `${localCount} local`, globalCount && `${globalCount} global`].filter(Boolean).join(', ');
+  
+  return `<div class="panel"><h2><i data-lucide="wrench"></i> Installed Skills (${data.skills.length})</h2>
+    <div style="font-size:0.7rem;color:var(--text-tertiary);margin-bottom:8px">${subtitle} — click to expand</div>` +
+    data.skills.map((s, i) => `
+      <div class="skill-item" id="skill-${i}">
+        <div class="skill-header" onclick="document.getElementById('skill-${i}').classList.toggle('expanded')">
+          <div style="display:flex;align-items:center">
+            <div class="skill-name">${esc(s.name)}</div>
+            <span class="skill-source ${s.source || 'local'}">${s.source || 'local'}</span>
+          </div>
+          <span class="skill-expand-icon">▶</span>
+        </div>
+        ${s.description ? `<div class="skill-desc">${esc(s.description)}</div>` : ''}
+        <div class="skill-detail">
+          ${s.content ? `<div class="skill-content">${esc(s.content)}</div>` : '<div style="font-size:0.72rem;color:var(--text-tertiary)">No SKILL.md content</div>'}
+          ${s.scripts && s.scripts.length > 0 ? `
+            <div class="skill-scripts">
+              <span style="font-size:0.62rem;color:var(--text-tertiary);font-weight:600">Scripts:</span>
+              ${s.scripts.map(sc => `<span class="skill-script-pill">${esc(sc)}</span>`).join('')}
+            </div>` : ''}
         </div>
       </div>
     `).join('') + '</div>';
+}
+
+function renderCredentials() {
+  const creds = data.credentials || [];
+  if (creds.length === 0) {
+    return '<div class="panel"><div class="empty">No credentials found in .credentials/</div></div>';
+  }
+  return `<div class="panel">
+    <h2><i data-lucide="key-round"></i> Credentials (${creds.length})</h2>
+    <div style="font-size:0.7rem;color:var(--text-tertiary);margin-bottom:10px">Files in .credentials/ — contents are never exposed</div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border-subtle);color:var(--text-tertiary);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em">
+          <th style="text-align:left;padding:6px 8px;font-weight:600">Service</th>
+          <th style="text-align:right;padding:6px 8px;font-weight:600">Size</th>
+          <th style="text-align:right;padding:6px 8px;font-weight:600">Modified</th>
+          <th style="text-align:center;padding:6px 8px;font-weight:600">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${creds.map(c => {
+          const isStub = c.size < 10;
+          const statusIcon = isStub ? '⚠️' : '✅';
+          const statusText = isStub ? 'Stub/empty' : 'Configured';
+          const ago = c.modified ? new Date(c.modified).toLocaleDateString() : '—';
+          return `<tr style="border-bottom:1px solid var(--border-subtle)">
+            <td style="padding:6px 8px;font-weight:600;color:var(--text-primary)">${esc(c.name)}</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--text-tertiary)">${c.size}B</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--text-tertiary)">${ago}</td>
+            <td style="padding:6px 8px;text-align:center">${statusIcon} <span style="font-size:0.68rem;color:var(--text-secondary)">${statusText}</span></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
 }
 
 function renderMemory() {

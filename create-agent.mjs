@@ -213,6 +213,11 @@ node_modules/`);
   
   // Verify Telegram token BEFORE touching config
   if (telegramToken) {
+    // Validate token format to prevent URL manipulation
+    if (!/^\d+:[A-Za-z0-9_-]+$/.test(telegramToken)) {
+      steps.push('❌ Telegram token has invalid format');
+      return { ok: false, steps, error: 'Invalid Telegram token format' };
+    }
     steps.push('📱 Verifying Telegram bot token');
     try {
       const verify = execFileSync('curl', ['-s', `https://api.telegram.org/bot${telegramToken}/getMe`], { encoding: 'utf8', stdio: 'pipe' });

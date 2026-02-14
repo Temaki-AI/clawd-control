@@ -75,11 +75,54 @@
 .breakdown-bar .seg.off { background: var(--border); }
 .fleet-pct { font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 
+/* ── View Toggle ────────────────────────── */
+.view-toggle {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  justify-content: flex-end;
+}
+.view-toggle .label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); font-weight: 600; }
+.view-btn {
+  padding: 4px 10px; font-size: 0.68rem; font-weight: 600; border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle); background: var(--bg-primary); color: var(--text-tertiary);
+  cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.view-btn:hover { border-color: var(--border); color: var(--text-secondary); }
+.view-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.view-btn [data-lucide] { width: 12px; height: 12px; }
+
 /* ── Agent Grid ────────────────────────── */
 .agents-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
   gap: 12px;
 }
+.agents-grid.compact {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+
+/* ── Compact Card ──────────────────────── */
+.agent-card.compact-card {
+  padding: 10px 14px;
+}
+.agent-card.compact-card .agent-header { margin-bottom: 4px; }
+.agent-card.compact-card .agent-name { font-size: 0.88rem; }
+.agent-card.compact-card .agent-emoji { font-size: 1.05rem; }
+.agent-card.compact-card .compact-meta {
+  display: flex; gap: 10px; font-size: 0.68rem; color: var(--text-tertiary);
+  align-items: center; flex-wrap: wrap;
+}
+.agent-card.compact-card .compact-meta strong {
+  color: var(--text-secondary); font-weight: 600;
+}
+.agent-card.compact-card .compact-meta .sep {
+  color: var(--border); font-size: 0.5rem;
+}
+.agent-card.compact-card .health-bar {
+  margin: 4px 0 0; height: 2px;
+}
+.agent-card.compact-card .context-bar { margin-top: 4px; }
+.agent-card.compact-card .last-seen { margin-top: 2px; font-size: 0.6rem; }
 .agent-card {
   background: var(--surface); border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md); padding: 16px;
@@ -229,13 +272,28 @@
     </div>
   </div>
 
+  <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+    <button class="ctrl-btn" onclick="fleetClearCooldowns()" title="Clear all API cooldowns across all agents" style="font-size:0.68rem">
+      <i data-lucide="timer-reset"></i> Clear All Cooldowns
+    </button>
+  </div>
   <div class="fleet-breakdown fade-up" style="animation-delay:.25s" id="fleetBreakdown">
     <span class="label">Fleet Health</span>
     <div class="breakdown-bar" id="breakdownBar"></div>
     <span class="fleet-pct" id="fleetPct">—</span>
   </div>
 
-  <div id="agentGrid" class="agents-grid">
+  <div class="view-toggle" id="viewToggle">
+    <span class="label">View</span>
+    <button class="view-btn active" id="btnCompact" onclick="setView('compact')" title="Compact view">
+      <i data-lucide="rows-3"></i> Compact
+    </button>
+    <button class="view-btn" id="btnExpanded" onclick="setView('expanded')" title="Expanded view">
+      <i data-lucide="layout-grid"></i> Expanded
+    </button>
+  </div>
+
+  <div id="agentGrid" class="agents-grid compact">
     <div class="empty-state">
       <div class="icon">📡</div>
       <p>Connecting to agents…</p>
@@ -256,6 +314,25 @@
 // All provided by layout.js.
 
 const $ = s => document.querySelector(s);
+
+// ═══════════════════════════════════════════
+// VIEW MODE (compact / expanded)
+// ═══════════════════════════════════════════
+let viewMode = localStorage.getItem('cc-view') || 'compact';
+
+function setView(mode) {
+  viewMode = mode;
+  localStorage.setItem('cc-view', mode);
+  $('#btnCompact').classList.toggle('active', mode === 'compact');
+  $('#btnExpanded').classList.toggle('active', mode === 'expanded');
+  $('#agentGrid').classList.toggle('compact', mode === 'compact');
+  renderAll();
+}
+
+// Apply saved view on load
+document.addEventListener('DOMContentLoaded', () => {
+  setView(viewMode);
+});
 
 // ═══════════════════════════════════════════
 // SSE EVENT LISTENERS (from layout.js)
@@ -385,7 +462,9 @@ function renderAgent(id) {
   card.setAttribute('tabindex', '0');
   card.setAttribute('role', 'link');
   card.setAttribute('aria-label', `View ${a.name || id} details`);
-  card.innerHTML = buildAgentHTML(id, a, health);
+  card.innerHTML = viewMode === 'compact' ? buildCompactHTML(id, a, health) : buildAgentHTML(id, a, health);
+  if (viewMode === 'compact') card.classList.add('compact-card');
+  else card.classList.remove('compact-card');
   refreshIcons();
 }
 
@@ -459,12 +538,62 @@ function buildAgentHTML(id, a, health) {
       <button class="ctrl-btn" onclick="confirmAction('${id}', 'session-new', 'Start fresh session for ${a.name || id}?')" ${!a.online ? 'disabled' : ''} title="New session">
         <i data-lucide="circle-plus"></i> New
       </button>
+      <button class="ctrl-btn" onclick="agentAction('${id}', 'clear-cooldowns')" title="Clear API cooldowns">
+        <i data-lucide="timer-reset"></i> Cooldowns
+      </button>
       <button class="ctrl-btn danger" onclick="confirmAction('${id}', 'session-reset', 'Reset ALL sessions for ${a.name || id}?')" ${!a.online ? 'disabled' : ''} title="Reset sessions">
         <i data-lucide="rotate-ccw"></i> Reset
       </button>
     </div>`;
 
   if (a.lastSeen) html += `<div class="last-seen">Last seen: ${timeAgo(a.lastSeen)}</div>`;
+  return html;
+}
+
+// ═══════════════════════════════════════════
+// COMPACT CARD HTML BUILDER
+// ═══════════════════════════════════════════
+
+function buildCompactHTML(id, a, health) {
+  const badgeClass = a.online ? (health.level === 'healthy' ? 'online' : (health.level === 'degraded' ? 'degraded' : 'idle')) : 'offline';
+  const badgeLabel = a.online ? (health.level === 'healthy' ? '●' : (health.level === 'degraded' ? '◐' : '○')) : '○';
+  const model = extractModel(a);
+  const sessCount = extractSessionCount(a);
+  const hbState = getHeartbeatState(a);
+  const sessions = extractSessions(a);
+  const mainSess = sessions.find(s => s.key?.endsWith(':main') || s.label === 'main');
+  const ctxPct = mainSess?.contextPct || null;
+
+  let html = `
+    <div class="agent-header">
+      <div class="agent-name">
+        <span class="agent-emoji">${a.emoji || '🤖'}</span>
+        <span>${a.name || id}</span>
+      </div>
+      <span class="agent-badge ${badgeClass}">${badgeLabel}</span>
+    </div>
+    <div class="compact-meta">
+      <span><strong>${model}</strong></span>
+      <span class="sep">•</span>
+      <span>${sessCount} session${sessCount !== 1 && sessCount !== '—' ? 's' : ''}</span>
+      <span class="sep">•</span>
+      <span>HB ${hbState === 'enabled' ? '✓' : '✗'}</span>`;
+
+  if (a.error && !a.online) {
+    html += `<span class="sep">•</span><span style="color:var(--error)">⚠ ${a.error.length > 30 ? a.error.slice(0,30)+'…' : a.error}</span>`;
+  }
+
+  html += `</div>
+    <div class="health-bar">
+      ${health.checks.map(c => `<div class="health-seg ${c.s === 'ok' ? 'ok' : c.s === 'warn' ? 'warn' : c.s === 'err' ? 'err' : 'off'}" title="${c.name}: ${c.d}"></div>`).join('')}
+    </div>`;
+
+  if (ctxPct !== null) {
+    const cls = ctxPct > 80 ? 'crit' : ctxPct > 60 ? 'warn' : 'ok';
+    html += `<div class="context-bar"><span class="context-label">${ctxPct}%</span><div class="context-track"><div class="context-fill bar-fill ${cls}" style="width:${ctxPct}%"></div></div></div>`;
+  }
+
+  if (a.lastSeen) html += `<div class="last-seen">${timeAgo(a.lastSeen)}</div>`;
   return html;
 }
 
@@ -546,6 +675,20 @@ async function agentAction(id, action) {
 
 function confirmAction(id, action, message) {
   if (confirm(message)) agentAction(id, action);
+}
+
+async function fleetClearCooldowns() {
+  // Use first agent to trigger clear-all-cooldowns
+  const firstId = Object.keys(agentState)[0];
+  if (!firstId) return showToast('No agents found', 'error');
+  try {
+    const res = await fetch(`/api/agents/${firstId}/action`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'clear-all-cooldowns' }),
+    });
+    const result = await res.json();
+    showToast(result.ok ? result.message : result.error, result.ok ? 'success' : 'error');
+  } catch (e) { showToast(e.message, 'error'); }
 }
 
 // ═══════════════════════════════════════════

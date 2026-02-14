@@ -21,6 +21,12 @@ import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 const PORT = parseInt(process.argv.find((_, i, a) => a[i - 1] === '--port') || '3100');
 const DIR = new URL('.', import.meta.url).pathname;
 
+// ── Security constants ──
+const MAX_BODY_SIZE = 1024 * 1024; // 1MB max POST body
+const RATE_LIMIT_WINDOW = 60000;   // 1 minute window
+const RATE_LIMIT_MAX = 5;          // 5 attempts per window
+const loginAttempts = new Map();   // ip → [timestamps]
+
 // ── Auth ─────────────────────────────────────────────
 // Password stored in auth.json. On first run, generates a random one.
 const AUTH_PATH = join(DIR, 'auth.json');
@@ -30,17 +36,20 @@ function loadAuth() {
   if (existsSync(AUTH_PATH)) {
     try { return JSON.parse(readFileSync(AUTH_PATH, 'utf8')); } catch {}
   }
-  // Generate default password on first run
+  // Generate default password on first run — store hash, show plaintext once
   const pw = randomBytes(12).toString('base64url');
-  const auth = { password: pw, sessionTtlHours: 24 };
-  writeFileSync(AUTH_PATH, JSON.stringify(auth, null, 2), 'utf8');
-  console.log(`🔐 Generated password: ${pw}`);
-  console.log(`   Stored in: ${AUTH_PATH}`);
+  const hash = createHash('sha256').update(pw).digest('hex');
+  const auth = { passwordHash: hash, sessionTtlHours: 24 };
+  writeFileSync(AUTH_PATH, JSON.stringify(auth, null, 2), { encoding: 'utf8', mode: 0o600 });
+  console.log(`🔐 Generated password (shown once, not stored): ${pw}`);
+  console.log(`   Hash stored in: ${AUTH_PATH}`);
   return auth;
 }
 
 // Session tokens (in-memory, survive until server restart)
 const sessions = new Map();
+
+// (rate limiting constants defined above)
 
 function hashPassword(pw) {
   return createHash('sha256').update(pw).digest('hex');
@@ -200,6 +209,57 @@ async function handleAgentAction(agentId, action) {
         }
         return { ok: true, message: `All sessions reset for ${agentId}. Backup created.` };
       }
+      case 'clear-cooldowns': {
+        // Clear API rate limit cooldowns for this agent
+        const agentIdForCooldown = agentId === 'gandalf' ? 'main' : agentId;
+        const authProfilePath = join(process.env.HOME, '.openclaw', 'agents', agentIdForCooldown, 'agent', 'auth-profiles.json');
+        if (existsSync(authProfilePath)) {
+          const profiles = JSON.parse(readFileSync(authProfilePath, 'utf8'));
+          let cleared = 0;
+          if (profiles.usageStats) {
+            for (const [k, v] of Object.entries(profiles.usageStats)) {
+              if (v.cooldownUntil || v.lastFailureAt) {
+                delete v.cooldownUntil;
+                delete v.lastFailureAt;
+                v.errorCount = 0;
+                v.failureCounts = {};
+                cleared++;
+              }
+            }
+          }
+          writeFileSync(authProfilePath, JSON.stringify(profiles, null, 2), 'utf8');
+          return { ok: true, message: `Cleared ${cleared} cooldown(s) for ${agentId}. Restart gateway to apply.` };
+        }
+        return { ok: false, error: `No auth-profiles.json found for ${agentId}` };
+      }
+      case 'clear-all-cooldowns': {
+        // Clear cooldowns for ALL agents
+        const agentsDir = join(process.env.HOME, '.openclaw', 'agents');
+        let totalCleared = 0;
+        const agentNames = [];
+        if (existsSync(agentsDir)) {
+          for (const dir of readdirSync(agentsDir)) {
+            const ap = join(agentsDir, dir, 'agent', 'auth-profiles.json');
+            if (existsSync(ap)) {
+              const profiles = JSON.parse(readFileSync(ap, 'utf8'));
+              if (profiles.usageStats) {
+                for (const [k, v] of Object.entries(profiles.usageStats)) {
+                  if (v.cooldownUntil || v.lastFailureAt) {
+                    delete v.cooldownUntil;
+                    delete v.lastFailureAt;
+                    v.errorCount = 0;
+                    v.failureCounts = {};
+                    totalCleared++;
+                    if (!agentNames.includes(dir)) agentNames.push(dir);
+                  }
+                }
+                writeFileSync(ap, JSON.stringify(profiles, null, 2), 'utf8');
+              }
+            }
+          }
+        }
+        return { ok: true, message: totalCleared > 0 ? `Cleared ${totalCleared} cooldown(s) for: ${agentNames.join(', ')}. Restart gateway to apply.` : 'No cooldowns found.' };
+      }
       default:
         return { ok: false, error: `Unknown action: ${action}` };
     }
@@ -290,23 +350,55 @@ function getAgentDetail(agentId) {
   const activeWork = safeRead('ACTIVE_WORK.md');
   const bootstrap = safeRead('BOOTSTRAP.md');
 
-  // List skills
-  let skills = [];
-  const skillsDir = join(ws, 'skills');
-  if (existsSync(skillsDir)) {
+  // List skills (local + global user + global system)
+  const readSkillsDir = (dir, source) => {
+    if (!existsSync(dir)) return [];
     try {
-      skills = readdirSync(skillsDir).filter(f => {
-        return statSync(join(skillsDir, f)).isDirectory();
+      return readdirSync(dir).filter(f => {
+        try { return statSync(join(dir, f)).isDirectory(); } catch { return false; }
       }).map(name => {
-        const skillMd = join(skillsDir, name, 'SKILL.md');
+        const skillMd = join(dir, name, 'SKILL.md');
         let description = null;
+        let content = null;
+        let scripts = [];
         if (existsSync(skillMd)) {
-          const content = readFileSync(skillMd, 'utf8');
-          const descMatch = content.match(/description:\s*(.+)/);
-          if (descMatch) description = descMatch[1].trim();
+          const raw = readFileSync(skillMd, 'utf8');
+          content = raw.length > 8192 ? raw.slice(0, 8192) + '\n...(truncated)' : raw;
+          const descMatch = raw.match(/description:\s*["']?(.+?)["']?\s*$/m);
+          if (descMatch) description = descMatch[1].trim().replace(/^["']|["']$/g, '');
         }
-        return { name, description };
+        const scriptsDir = join(dir, name, 'scripts');
+        if (existsSync(scriptsDir)) {
+          try { scripts = readdirSync(scriptsDir).filter(f => !f.startsWith('.')); } catch {}
+        }
+        return { name, description, source, content, scripts };
       });
+    } catch { return []; }
+  };
+
+  const homeDir = process.env.HOME || '/Users/openclaw';
+  const localSkills = readSkillsDir(join(ws, 'skills'), 'local');
+  const globalUserSkills = readSkillsDir(join(homeDir, '.openclaw', 'skills'), 'global');
+
+  // Only show active skills: local (agent workspace) + global user-installed
+  // System skills are the available catalog — not shown unless installed
+  const skillMap = new Map();
+  for (const s of globalUserSkills) skillMap.set(s.name, s);
+  for (const s of localSkills) skillMap.set(s.name, s);
+  const skills = [...skillMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+  // List credentials (names + sizes only, NEVER contents)
+  let credentials = [];
+  const credsDir = join(ws, '.credentials');
+  if (existsSync(credsDir)) {
+    try {
+      credentials = readdirSync(credsDir)
+        .filter(f => f.endsWith('.json') && !f.startsWith('.'))
+        .map(f => {
+          const st = statSync(join(credsDir, f));
+          return { name: f.replace('.json', ''), size: st.size, modified: st.mtime.toISOString() };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
     } catch {}
   }
 
@@ -343,6 +435,7 @@ function getAgentDetail(agentId) {
       agents, user, activeWork, bootstrap,
     },
     skills,
+    credentials,
     memoryFiles,
     recentNotes,
     live: liveState,
@@ -1069,23 +1162,55 @@ const server = createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const path = url.pathname;
 
-  // CORS for local network
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // ── Security Headers ──
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';");
+
+  // CORS — restrict to same origin (no cross-origin API access)
+  const origin = req.headers.origin;
+  if (origin) {
+    const allowed = `http://127.0.0.1:${PORT}`;
+    const allowedLocal = `http://localhost:${PORT}`;
+    if (origin === allowed || origin === allowedLocal) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+  }
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
-  // ── Login ──
+  // ── Login (rate-limited) ──
   if (path === '/api/login' && req.method === 'POST') {
+    const clientIp = req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const attempts = loginAttempts.get(clientIp) || [];
+    // Prune attempts older than RATE_LIMIT_WINDOW
+    const recent = attempts.filter(t => now - t < RATE_LIMIT_WINDOW);
+    if (recent.length >= RATE_LIMIT_MAX) {
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'Too many attempts. Try again later.' }));
+      return;
+    }
     let body = '';
-    req.on('data', chunk => { body += chunk; });
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > MAX_BODY_SIZE) { req.destroy(); }
+    });
     req.on('end', () => {
       try {
         const { password } = JSON.parse(body);
-        const pwBuf = Buffer.from(String(password));
-        const authBuf = Buffer.from(String(AUTH.password));
-        if (pwBuf.length === authBuf.length && timingSafeEqual(pwBuf, authBuf)) {
+        const inputHash = createHash('sha256').update(String(password)).digest('hex');
+        // Support both legacy plaintext and new hash format
+        const storedHash = AUTH.passwordHash || createHash('sha256').update(String(AUTH.password)).digest('hex');
+        const inputBuf = Buffer.from(inputHash);
+        const storedBuf = Buffer.from(storedHash);
+        if (inputBuf.length === storedBuf.length && timingSafeEqual(inputBuf, storedBuf)) {
+          loginAttempts.delete(clientIp);
           const token = createSession();
           res.writeHead(200, {
             'Content-Type': 'application/json',
@@ -1093,8 +1218,14 @@ const server = createServer((req, res) => {
           });
           res.end(JSON.stringify({ ok: true }));
         } else {
-          res.writeHead(401, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: 'Wrong password' }));
+          recent.push(now);
+          loginAttempts.set(clientIp, recent);
+          // Exponential delay: 200ms * 2^(attempts-1), max 5s
+          const delay = Math.min(200 * Math.pow(2, recent.length - 1), 5000);
+          setTimeout(() => {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'Wrong password' }));
+          }, delay);
         }
       } catch (e) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1163,7 +1294,7 @@ const server = createServer((req, res) => {
   // ── Create Agent ──
   if (path === '/api/create-agent' && req.method === 'POST') {
     let body = '';
-    req.on('data', chunk => { body += chunk; });
+    req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY_SIZE) { req.destroy(); return; } });
     req.on('end', async () => {
       try {
         const data = JSON.parse(body);
@@ -1314,7 +1445,7 @@ const server = createServer((req, res) => {
   if (path.startsWith('/api/agents/') && path.endsWith('/action') && req.method === 'POST') {
     const agentId = path.split('/')[3];
     let body = '';
-    req.on('data', chunk => { body += chunk; });
+    req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY_SIZE) { req.destroy(); return; } });
     req.on('end', async () => {
       try {
         const { action } = JSON.parse(body);
@@ -1459,12 +1590,12 @@ async function login(e) {
   }
 }
 </script>
-<script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js"></script>
+<script src="/lucide.min.js"></script>
 <script>lucide.createIcons();</script>
 </body>
 </html>`;
 
-const BIND = process.argv.find((_, i, a) => a[i - 1] === '--bind') || '0.0.0.0';
+const BIND = process.argv.find((_, i, a) => a[i - 1] === '--bind') || '127.0.0.1';
 
 server.listen(PORT, BIND, () => {
   console.log(`🏰 Clawd Control v2.0`);
