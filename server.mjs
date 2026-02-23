@@ -1361,7 +1361,7 @@ const server = createServer((req, res) => {
         }
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: e.message, steps: [`❌ ${e.message}`] }));
+        console.error("[API] Error:", e.message); res.end(JSON.stringify({ ok: false, error: "Internal server error" }));
       }
     });
     return;
@@ -1375,7 +1375,7 @@ const server = createServer((req, res) => {
       res.end(JSON.stringify(result));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: e.message }));
+      console.error("[API] Error:", e.message); res.end(JSON.stringify({ error: "Internal server error" }));
     }
     return;
   }
@@ -1389,7 +1389,7 @@ const server = createServer((req, res) => {
       res.end(output);
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: `Failed to list cron jobs: ${e.message}` }));
+      console.error("[API] Cron list error:", e.message); res.end(JSON.stringify({ error: "Failed to list cron jobs" }));
     }
     return;
   }
@@ -1404,7 +1404,7 @@ const server = createServer((req, res) => {
       res.end(JSON.stringify(result));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: e.message }));
+      console.error("[API] Error:", e.message); res.end(JSON.stringify({ error: "Internal server error" }));
     }
     return;
   }
@@ -1419,7 +1419,7 @@ const server = createServer((req, res) => {
       res.end(JSON.stringify(result));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: e.message }));
+      console.error("[API] Error:", e.message); res.end(JSON.stringify({ error: "Internal server error" }));
     }
     return;
   }
@@ -1438,7 +1438,7 @@ const server = createServer((req, res) => {
       res.end(JSON.stringify(result));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: e.message }));
+      console.error("[API] Error:", e.message); res.end(JSON.stringify({ error: "Internal server error" }));
     }
     return;
   }
@@ -1451,7 +1451,7 @@ const server = createServer((req, res) => {
       res.end(JSON.stringify(result));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: e.message }));
+      console.error("[API] Error:", e.message); res.end(JSON.stringify({ error: "Internal server error" }));
     }
     return;
   }
@@ -1464,7 +1464,7 @@ const server = createServer((req, res) => {
       res.end(JSON.stringify(result));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: e.message }));
+      console.error("[API] Error:", e.message); res.end(JSON.stringify({ error: "Internal server error" }));
     }
     return;
   }
@@ -1508,7 +1508,7 @@ const server = createServer((req, res) => {
         res.end(JSON.stringify(result));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: e.message }));
+        console.error("[API] Error:", e.message); res.end(JSON.stringify({ ok: false, error: "Internal server error" }));
       }
     });
     return;
