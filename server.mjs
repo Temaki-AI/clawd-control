@@ -1428,11 +1428,17 @@ const server = createServer((req, res) => {
   if (path.startsWith('/api/session/') && path.endsWith('/trace') && req.method === 'GET') {
     try {
       const sessionKey = decodeURIComponent(path.split('/')[3]);
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '200', 10) || 200, 1000);
       const result = getSessionTrace(sessionKey);
       if (!result) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Session not found' }));
         return;
+      }
+      // Cap trace entries to prevent memory issues on large sessions
+      if (result.trace && result.trace.length > limit) {
+        result.trace = result.trace.slice(-limit);
+        result.truncated = true;
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
@@ -1460,8 +1466,11 @@ const server = createServer((req, res) => {
   if (path === '/api/sessions' && req.method === 'GET') {
     try {
       const result = getAllSessions();
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10) || 50, 200);
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10) || 0;
+      const paged = result.slice(offset, offset + limit);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
+      res.end(JSON.stringify({ total: result.length, offset, limit, sessions: paged }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
