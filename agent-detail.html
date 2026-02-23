@@ -504,7 +504,7 @@ async function load() {
     data = await res.json();
     render();
   } catch (e) {
-    document.getElementById('hero').innerHTML = `<div class="loading">❌ ${e.message}</div>`;
+    document.getElementById('hero').innerHTML = `<div class="loading">❌ Failed to load agent details</div>`;
   }
 }
 

@@ -493,7 +493,7 @@ function createTimelineItem(msg, idx, maxDuration) {
     msg.toolCalls.forEach(tool => {
       const toolBar = document.createElement('div');
       toolBar.className = 'tool-bar';
-      toolBar.innerHTML = `<span class="tool-name">${tool.name}</span>`;
+      toolBar.innerHTML = `<span class="tool-name">${escapeHtml(tool.name)}</span>`;
       toolBar.title = JSON.stringify(tool.arguments, null, 2);
       toolsEl.appendChild(toolBar);
     });
@@ -559,7 +559,7 @@ function toggleDetails(container, msg) {
       <div class="detail-grid">
         <div class="detail-item">
           <div class="detail-item-label">Model</div>
-          <div class="detail-item-value">${msg.model}</div>
+          <div class="detail-item-value">${escapeHtml(msg.model || '')}</div>
         </div>
         <div class="detail-item">
           <div class="detail-item-label">Stop Reason</div>
