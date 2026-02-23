@@ -1,5 +1,7 @@
 # 🏰 Clawd Control
 
+> ⚠️ **Security Note:** Clawd Control exposes full session trace data (including message content) to any authenticated user. Keep it on your LAN or behind a VPN. Do not expose to the public internet without additional access controls.
+
 Real-time dashboard for monitoring and managing [Clawdbot](https://github.com/clawdbot/clawdbot) AI agents.
 
 <!-- Screenshot -->
