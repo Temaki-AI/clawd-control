@@ -226,6 +226,101 @@
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .fade-up { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
+/* ── Modal ─────────────────────────────── */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.75); z-index: 1000;
+  display: none; align-items: center; justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 24px;
+  max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border-subtle);
+}
+.modal-title {
+  font-size: 1.1rem; font-weight: 700; color: var(--text-primary);
+}
+.modal-close {
+  padding: 6px; border: none; background: transparent;
+  color: var(--text-tertiary); cursor: pointer; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-close:hover { background: var(--bg-primary); color: var(--text-primary); }
+.modal-form { display: flex; flex-direction: column; gap: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label {
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-tertiary);
+}
+.form-input, .form-select, .form-textarea {
+  padding: 10px 14px; border-radius: 6px;
+  background: var(--bg-primary); border: 1px solid var(--border-subtle);
+  color: var(--text-primary); font-family: var(--font-sans); font-size: 14px;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--accent); outline: none;
+}
+.form-textarea { resize: vertical; min-height: 80px; font-family: var(--font-mono); }
+.form-hint {
+  font-size: 0.7rem; color: var(--text-tertiary); margin-top: -2px;
+}
+.modal-actions {
+  display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px;
+}
+.btn {
+  padding: 10px 18px; font-size: 13px; font-weight: 600;
+  border-radius: 6px; border: 1px solid var(--border);
+  cursor: pointer; font-family: var(--font-sans);
+  transition: all 0.2s ease; display: inline-flex;
+  align-items: center; gap: 8px;
+}
+.btn-primary {
+  background: var(--accent); color: var(--bg-primary); border-color: var(--accent);
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary {
+  background: var(--surface); color: var(--text-primary);
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-danger {
+  background: var(--error); color: white; border-color: var(--error);
+}
+.btn-danger:hover { opacity: 0.9; }
+
+/* ── Delete Button in Job Cards ──────────── */
+.job-delete-btn {
+  padding: 6px 12px; font-size: 12px; font-weight: 600;
+  border-radius: 4px; border: 1px solid var(--error);
+  background: transparent; color: var(--error);
+  cursor: pointer; transition: all 0.2s ease;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.job-delete-btn:hover {
+  background: var(--error); color: white;
+}
+
+/* ── New Cron Button ────────────────────── */
+.new-cron-btn {
+  padding: 10px 18px; font-size: 13px; font-weight: 600;
+  border-radius: 6px; border: 1px solid var(--accent);
+  background: var(--accent); color: var(--bg-primary);
+  cursor: pointer; font-family: var(--font-sans);
+  transition: all 0.2s ease; display: inline-flex;
+  align-items: center; gap: 8px; margin-left: auto;
+}
+.new-cron-btn:hover { background: var(--accent-hover); }
+
 /* ── View Toggle ───────────────────────── */
 .view-toggle {
   display: flex; gap: 4px; margin-left: auto;
@@ -303,9 +398,14 @@
 <body>
 
 <main class="main">
-  <div class="page-header fade-up">
-    <h1>⏰ Cron Jobs</h1>
-    <p>Scheduled tasks and automation across all agents</p>
+  <div class="page-header fade-up" style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <h1>⏰ Cron Jobs</h1>
+      <p>Scheduled tasks and automation across all agents</p>
+    </div>
+    <button class="new-cron-btn" onclick="openNewCronModal()">
+      <i data-lucide="plus-circle"></i> New Cron
+    </button>
   </div>
 
   <div class="stats-grid fade-up" style="animation-delay:.05s">
@@ -377,6 +477,48 @@
     <div class="loading-state">
       <div class="icon">⏳</div>
       <p>Loading cron jobs...</p>
+    </div>
+  </div>
+
+  <!-- New Cron Modal -->
+  <div class="modal-overlay" id="newCronModal" onclick="if(event.target===this) closeNewCronModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Create New Cron Job</div>
+        <button class="modal-close" onclick="closeNewCronModal()">
+          <i data-lucide="x" style="width:20px;height:20px"></i>
+        </button>
+      </div>
+      <form class="modal-form" onsubmit="createCron(event)">
+        <div class="form-group">
+          <label class="form-label" for="cron-agent">Agent</label>
+          <select class="form-select" id="cron-agent" required>
+            <option value="">Select agent...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cron-schedule">Schedule (Cron Expression)</label>
+          <input type="text" class="form-input" id="cron-schedule" required 
+                 placeholder="0 7 * * *">
+          <div class="form-hint">Examples: "0 7 * * *" (daily at 7am), "*/30 * * * *" (every 30 min)</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cron-task">Task / Instruction</label>
+          <textarea class="form-textarea" id="cron-task" required 
+                    placeholder="What should the agent do?"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cron-label">Label (short name)</label>
+          <input type="text" class="form-input" id="cron-label" required 
+                 placeholder="Morning Briefing">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeNewCronModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="create-cron-btn">
+            <i data-lucide="check-circle"></i> Create Job
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -619,8 +761,8 @@ function renderJobs() {
     const lastDuration = job.state?.lastDurationMs ? formatDuration(job.state.lastDurationMs) : '—';
 
     return `
-      <div class="job-card" id="job-${job.id}" onclick="toggleJob('${job.id}')">
-        <div class="job-header">
+      <div class="job-card" id="job-${job.id}">
+        <div class="job-header" onclick="toggleJob('${job.id}')">
           <div class="job-agent">
             <span class="emoji">${job.agentEmoji}</span>
             <span>${job.agentName}</span>
@@ -658,6 +800,9 @@ function renderJobs() {
                 ${lastDuration}
               </span>
             ` : ''}
+            <button class="job-delete-btn" onclick="event.stopPropagation(); deleteCron('${job.id}', '${escapeHtml(job.name)}')">
+              <i data-lucide="trash-2" style="width:14px;height:14px"></i> Delete
+            </button>
           </div>
         </div>
         <div class="job-details">
@@ -1007,6 +1152,112 @@ function parseCronField(field, min, max) {
   });
   
   return values;
+}
+
+// ═══════════════════════════════════════════
+// NEW CRON MODAL
+// ═══════════════════════════════════════════
+
+function openNewCronModal() {
+  const modal = $('#newCronModal');
+  const agentSelect = $('#cron-agent');
+  
+  // Populate agent dropdown
+  const agents = Object.keys(agentState).sort();
+  agentSelect.innerHTML = '<option value="">Select agent...</option>' + 
+    agents.map(id => {
+      const a = agentState[id];
+      return `<option value="${id}">${a.emoji || '🤖'} ${a.name || id}</option>`;
+    }).join('');
+  
+  // Reset form
+  $('#cron-schedule').value = '';
+  $('#cron-task').value = '';
+  $('#cron-label').value = '';
+  
+  modal.classList.add('active');
+  refreshIcons();
+}
+
+function closeNewCronModal() {
+  $('#newCronModal').classList.remove('active');
+}
+
+async function createCron(event) {
+  event.preventDefault();
+  
+  const btn = $('#create-cron-btn');
+  const agent = $('#cron-agent').value;
+  const schedule = $('#cron-schedule').value;
+  const task = $('#cron-task').value;
+  const label = $('#cron-label').value;
+  
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-circle" class="lucide-spin"></i> Creating...';
+  refreshIcons();
+  
+  try {
+    const res = await fetch('/api/crons', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent, schedule, task, label }),
+    });
+    
+    const result = await res.json();
+    
+    if (result.ok) {
+      closeNewCronModal();
+      loadCrons(); // Refresh list
+      showToast('Cron job created successfully');
+    } else {
+      showToast(result.error || 'Failed to create cron job', 'error');
+    }
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check-circle"></i> Create Job';
+    refreshIcons();
+  }
+}
+
+async function deleteCron(cronId, cronName) {
+  if (!confirm(`Delete cron job "${cronName}"?\n\nThis cannot be undone.`)) {
+    return;
+  }
+  
+  try {
+    const res = await fetch(`/api/crons/${cronId}`, { method: 'DELETE' });
+    const result = await res.json();
+    
+    if (result.ok) {
+      loadCrons(); // Refresh list
+      showToast('Cron job deleted');
+    } else {
+      showToast(result.error || 'Failed to delete cron job', 'error');
+    }
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+function showToast(message, type = 'success') {
+  // Simple toast notification
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position: fixed; bottom: 24px; right: 24px; z-index: 2000;
+    padding: 14px 20px; border-radius: 8px; font-size: 14px;
+    background: var(--surface); border: 1px solid ${type === 'error' ? 'var(--error)' : 'var(--success)'};
+    color: ${type === 'error' ? 'var(--error)' : 'var(--success)'};
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4); animation: slideIn 0.3s ease;
+  `;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'fadeOut 0.2s ease';
+    setTimeout(() => toast.remove(), 200);
+  }, 3000);
 }
 
 </script>

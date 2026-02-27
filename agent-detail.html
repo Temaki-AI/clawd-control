@@ -539,6 +539,7 @@ function render() {
     { id: 'memory', icon: 'database', label: 'Memory' },
     { id: 'tasks', icon: 'clipboard-list', label: 'Tasks' },
     { id: 'sessions', icon: 'message-square', label: 'Sessions' },
+    { id: 'configuration', icon: 'sliders', label: 'Configuration' },
     { id: 'security', icon: 'shield-check', label: 'Security' },
     { id: 'controls', icon: 'settings', label: 'Controls' },
   ];
@@ -566,6 +567,7 @@ function renderTab(id) {
     case 'memory': return renderMemory();
     case 'tasks': return renderTasks();
     case 'sessions': return renderSessions();
+    case 'configuration': return renderConfiguration();
     case 'security': return renderSecurity();
     case 'controls': return renderControls();
     default: return '<div class="empty">Not found</div>';
@@ -849,6 +851,155 @@ function renderControls() {
       <div class="md-content">${esc(JSON.stringify(data.config, null, 2))}</div>
     </div>
   `;
+}
+
+function renderConfiguration() {
+  return `
+    <div class="panel" id="config-panel">
+      <h2><i data-lucide="sliders"></i> Agent Configuration</h2>
+      <button class="ctrl-btn" onclick="loadAgentConfig()" id="load-config-btn">
+        <i data-lucide="refresh-cw"></i> Load Config
+      </button>
+      <div id="config-content" style="margin-top:20px">
+        <p style="color:var(--text-secondary);font-size:13px">Click "Load Config" to edit agent configuration</p>
+      </div>
+    </div>
+  `;
+}
+
+async function loadAgentConfig() {
+  const btn = document.getElementById('load-config-btn');
+  const content = document.getElementById('config-content');
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-circle" class="lucide-spin"></i> Loading...';
+  refreshIcons();
+
+  try {
+    const res = await fetch(`/api/agents/${agentId}/config`);
+    const config = await res.json();
+
+    let html = '';
+
+    // Model selector
+    html += `<div style="margin-bottom:24px">
+      <label style="display:block;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:8px">Model</label>
+      <input type="text" id="config-model" value="${esc(config.model || '')}" 
+             style="width:100%;max-width:400px;padding:10px 14px;border-radius:6px;background:var(--bg-primary);border:1px solid var(--border-subtle);color:var(--text-primary);font-size:14px;font-family:var(--font-mono)"
+             placeholder="claude-opus-4-6">
+    </div>`;
+
+    // Skills (read-only)
+    html += `<div style="margin-bottom:24px">
+      <label style="display:block;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:8px">Skills (Read-Only)</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">`;
+    if (config.skills && config.skills.length > 0) {
+      config.skills.forEach(skill => {
+        html += `<span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:var(--accent-bg);color:var(--accent)">${esc(skill)}</span>`;
+      });
+    } else {
+      html += `<span style="color:var(--text-tertiary);font-size:13px">No skills installed</span>`;
+    }
+    html += `</div></div>`;
+
+    // File tabs
+    const files = ['SOUL.md', 'AGENTS.md', 'USER.md', 'TOOLS.md'];
+    html += `<div style="margin-bottom:24px">
+      <label style="display:block;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:8px">Workspace Files</label>
+      <div style="display:flex;gap:4px;margin-bottom:8px;border-bottom:1px solid var(--border-subtle)">`;
+    files.forEach((file, i) => {
+      html += `<button class="file-tab ${i === 0 ? 'active' : ''}" onclick="switchFileTab('${file}')" 
+               style="padding:8px 14px;border:none;background:transparent;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px">${file}</button>`;
+    });
+    html += `</div>`;
+
+    files.forEach((file, i) => {
+      const content = config.files?.[file] || '';
+      html += `<textarea id="config-file-${file}" class="file-editor ${i === 0 ? 'active' : ''}" 
+               style="width:100%;min-height:400px;padding:14px;border-radius:6px;background:#1a1b26;border:1px solid var(--border-subtle);color:var(--text-primary);font-size:13px;font-family:var(--font-mono);line-height:1.6;resize:vertical"
+               placeholder="${file} contents...">${esc(content)}</textarea>`;
+    });
+    html += `</div>`;
+
+    // Save button
+    html += `<div style="display:flex;gap:12px">
+      <button class="ctrl-btn" onclick="saveAgentConfig()" id="save-config-btn" style="background:var(--accent);color:var(--bg-primary);border-color:var(--accent)">
+        <i data-lucide="save"></i> Save Configuration
+      </button>
+    </div>`;
+
+    content.innerHTML = html;
+    refreshIcons();
+
+    // Add styles for file tabs
+    const style = document.createElement('style');
+    style.textContent = `
+      .file-tab.active { color: var(--accent); border-bottom-color: var(--accent) !important; }
+      .file-tab:hover { color: var(--text-primary); }
+      .file-editor { display: none; }
+      .file-editor.active { display: block; }
+      .file-editor:focus { border-color: var(--accent); outline: none; }
+    `;
+    document.head.appendChild(style);
+
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="refresh-cw"></i> Reload Config';
+    refreshIcons();
+  } catch (e) {
+    content.innerHTML = `<p style="color:var(--error)">Error: ${e.message}</p>`;
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="refresh-cw"></i> Load Config';
+    refreshIcons();
+  }
+}
+
+function switchFileTab(fileName) {
+  // Update tab buttons
+  document.querySelectorAll('.file-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+
+  // Update editors
+  document.querySelectorAll('.file-editor').forEach(e => e.classList.remove('active'));
+  document.getElementById(`config-file-${fileName}`).classList.add('active');
+}
+
+async function saveAgentConfig() {
+  const btn = document.getElementById('save-config-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-circle" class="lucide-spin"></i> Saving...';
+  refreshIcons();
+
+  try {
+    const model = document.getElementById('config-model').value;
+    const files = {};
+
+    ['SOUL.md', 'AGENTS.md', 'USER.md', 'TOOLS.md'].forEach(file => {
+      const editor = document.getElementById(`config-file-${file}`);
+      if (editor) files[file] = editor.value;
+    });
+
+    const res = await fetch(`/api/agents/${agentId}/config`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, files }),
+    });
+
+    const result = await res.json();
+    if (result.ok) {
+      showToast('Configuration saved successfully', '');
+      setTimeout(() => load(), 1000); // Reload agent data
+    } else {
+      showToast(result.error || 'Failed to save', 'error');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="save"></i> Save Configuration';
+    refreshIcons();
+  } catch (e) {
+    showToast(e.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="save"></i> Save Configuration';
+    refreshIcons();
+  }
 }
 
 function renderSecurity() {

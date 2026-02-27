@@ -1487,6 +1487,83 @@ const server = createServer((req, res) => {
     return;
   }
 
+  if (path === '/api/crons' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY_SIZE) { req.destroy(); return; } });
+    req.on('end', () => {
+      try {
+        const { agent, schedule, task, label } = JSON.parse(body);
+        
+        // Validate inputs
+        if (!agent || !schedule || !task || !label) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'Missing required fields' }));
+          return;
+        }
+
+        // Sanitize inputs (no shell metacharacters)
+        const sanitize = (str) => {
+          if (typeof str !== 'string') return '';
+          // Only allow alphanumeric, spaces, dashes, underscores, colons, slashes, dots, commas
+          return str.replace(/[^a-zA-Z0-9\s\-_:\/\.,*]/g, '');
+        };
+
+        const safeAgent = sanitize(agent);
+        const safeSchedule = sanitize(schedule);
+        const safeLabel = sanitize(label);
+        // Task can have more characters but still sanitize dangerous ones
+        const safeTask = String(task).replace(/[$`\\]/g, '');
+
+        if (!safeAgent || !safeSchedule || !safeLabel || !safeTask) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'Invalid characters in input' }));
+          return;
+        }
+
+        // Execute openclaw cron add
+        const openclawBin = join(process.execPath, '..', 'openclaw');
+        execFileSync(openclawBin, [
+          'cron', 'add',
+          '--agent', safeAgent,
+          '--schedule', safeSchedule,
+          '--task', safeTask,
+          '--label', safeLabel
+        ], { encoding: 'utf8', stdio: 'pipe', timeout: 10000 });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, message: 'Cron job created' }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        console.error('[API] /api/crons POST error:', e.message);
+        res.end(JSON.stringify({ ok: false, error: 'Failed to create cron job' }));
+      }
+    });
+    return;
+  }
+
+  if (path.startsWith('/api/crons/') && req.method === 'DELETE') {
+    try {
+      const cronId = path.split('/')[3];
+      if (!cronId || !/^[a-zA-Z0-9\-_]+$/.test(cronId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'Invalid cron ID' }));
+        return;
+      }
+
+      // Execute openclaw cron remove
+      const openclawBin = join(process.execPath, '..', 'openclaw');
+      execFileSync(openclawBin, ['cron', 'remove', cronId], { encoding: 'utf8', stdio: 'pipe', timeout: 10000 });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, message: 'Cron job deleted' }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      console.error('[API] /api/crons DELETE error:', e.message);
+      res.end(JSON.stringify({ ok: false, error: 'Failed to delete cron job' }));
+    }
+    return;
+  }
+
   // ── Analytics ──
   if (path === '/api/analytics' && req.method === 'GET') {
     try {
@@ -1576,6 +1653,128 @@ const server = createServer((req, res) => {
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
+    return;
+  }
+
+  // ── Agent Config ──
+  if (path.startsWith('/api/agents/') && path.endsWith('/config') && req.method === 'GET') {
+    const agentId = path.split('/')[3];
+    try {
+      const agentConfig = collector.config?.agents?.find(a => a.id === agentId);
+      if (!agentConfig) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Agent not found' }));
+        return;
+      }
+
+      const ws = agentConfig.workspace;
+      const homeDir = process.env.HOME || '/Users/openclaw';
+
+      // Read model from config.yaml
+      let model = null;
+      try {
+        const configPath = join(homeDir, '.openclaw', 'config.yaml');
+        if (existsSync(configPath)) {
+          const configContent = readFileSync(configPath, 'utf8');
+          // Simple YAML parsing for agents.<name>.model
+          const modelMatch = configContent.match(new RegExp(`agents:\\s*\\n\\s*${agentId}:\\s*\\n.*?model:\\s*["']?([^"'\\n]+)["']?`, 's'));
+          if (modelMatch) model = modelMatch[1];
+        }
+      } catch {}
+
+      // List skills (local + global user)
+      const readSkillsDir = (dir) => {
+        if (!existsSync(dir)) return [];
+        try {
+          return readdirSync(dir).filter(f => {
+            try { return statSync(join(dir, f)).isDirectory(); } catch { return false; }
+          });
+        } catch { return []; }
+      };
+
+      const localSkills = readSkillsDir(join(ws, 'skills'));
+      const globalSkills = readSkillsDir(join(homeDir, '.openclaw', 'skills'));
+      const allSkills = [...new Set([...localSkills, ...globalSkills])].sort();
+
+      // Read workspace files
+      const readFile = (name) => {
+        const p = join(ws, name);
+        if (!existsSync(p)) return '';
+        try { return readFileSync(p, 'utf8'); } catch { return ''; }
+      };
+
+      const files = {
+        'SOUL.md': readFile('SOUL.md'),
+        'AGENTS.md': readFile('AGENTS.md'),
+        'USER.md': readFile('USER.md'),
+        'TOOLS.md': readFile('TOOLS.md'),
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ model, skills: allSkills, files }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      console.error('[API] /api/agents/:name/config GET error:', e.message);
+      res.end(JSON.stringify({ error: 'Failed to read config' }));
+    }
+    return;
+  }
+
+  if (path.startsWith('/api/agents/') && path.endsWith('/config') && req.method === 'PUT') {
+    const agentId = path.split('/')[3];
+    let body = '';
+    req.on('data', chunk => { body += chunk; if (body.length > MAX_BODY_SIZE) { req.destroy(); return; } });
+    req.on('end', () => {
+      try {
+        const { model, files } = JSON.parse(body);
+        
+        const agentConfig = collector.config?.agents?.find(a => a.id === agentId);
+        if (!agentConfig) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'Agent not found' }));
+          return;
+        }
+
+        const ws = agentConfig.workspace;
+
+        // Update model via openclaw config set
+        if (model) {
+          const sanitizedModel = String(model).replace(/[^a-zA-Z0-9\-_\.\/]/g, '');
+          if (sanitizedModel) {
+            try {
+              const openclawBin = join(process.execPath, '..', 'openclaw');
+              execFileSync(openclawBin, ['config', 'set', `agents.${agentId}.model`, sanitizedModel], 
+                { encoding: 'utf8', stdio: 'pipe', timeout: 10000 });
+            } catch (e) {
+              console.error('[API] Failed to update model:', e.message);
+            }
+          }
+        }
+
+        // Update files
+        if (files && typeof files === 'object') {
+          const allowedFiles = ['SOUL.md', 'AGENTS.md', 'USER.md', 'TOOLS.md'];
+          for (const [name, content] of Object.entries(files)) {
+            if (!allowedFiles.includes(name)) continue;
+            if (typeof content !== 'string') continue;
+
+            const filePath = join(ws, name);
+            try {
+              writeFileSync(filePath, content, { encoding: 'utf8', mode: 0o644 });
+            } catch (e) {
+              console.error(`[API] Failed to write ${name}:`, e.message);
+            }
+          }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, message: 'Configuration saved' }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        console.error('[API] /api/agents/:name/config PUT error:', e.message);
+        res.end(JSON.stringify({ ok: false, error: 'Failed to save config' }));
+      }
+    });
     return;
   }
 
