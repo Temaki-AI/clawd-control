@@ -1,119 +1,321 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shared Context — Clawd Control</title>
-  <style>
-    .sc-grid { display:flex; flex-direction:column; gap:1.5rem; }
-    .sc-card { background:var(--bg-secondary); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
-    .sc-card-header { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.5rem; border-bottom:1px solid var(--border); background:var(--bg-tertiary); }
-    .sc-card-title { font-size:1rem; font-weight:600; color:var(--text-primary); font-family:monospace; }
-    .sc-card-meta { font-size:0.75rem; color:var(--text-tertiary); display:flex; gap:1rem; }
-    .sc-card-body { padding:1.5rem; font-size:0.88rem; line-height:1.7; color:var(--text-secondary); }
-    .sc-card-body h1 { font-size:1.2rem; font-weight:700; color:var(--text-primary); margin:1.5rem 0 0.75rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem; }
-    .sc-card-body h1:first-child { margin-top:0; }
-    .sc-card-body h2 { font-size:1rem; font-weight:600; color:var(--text-primary); margin:1.25rem 0 0.5rem; }
-    .sc-card-body h3 { font-size:0.9rem; font-weight:600; color:var(--text-primary); margin:1rem 0 0.4rem; }
-    .sc-card-body strong { color:var(--text-primary); }
-    .sc-card-body ul, .sc-card-body ol { padding-left:1.5rem; margin:0.5rem 0; }
-    .sc-card-body li { margin:0.3rem 0; }
-    .sc-card-body code { background:var(--bg-tertiary); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.82rem; color:var(--accent); }
-    .sc-card-body blockquote { border-left:3px solid var(--accent); padding:0.5rem 1rem; margin:0.75rem 0; color:var(--text-tertiary); font-style:italic; background:var(--bg-tertiary); border-radius:0 6px 6px 0; }
-    .sc-card-body hr { border:none; border-top:1px solid var(--border); margin:1rem 0; }
-    .sc-loading { text-align:center; padding:3rem; color:var(--text-tertiary); }
-    .sc-empty { text-align:center; padding:3rem; color:var(--text-tertiary); }
-    .sc-empty code { background:var(--bg-tertiary); padding:0.2rem 0.5rem; border-radius:3px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shared Context — Clawd Control</title>
+<style>
+/* ═══════════════════════════════════════════
+   SHARED CONTEXT — Cross-agent alignment
+   ═══════════════════════════════════════════ */
+
+.sc-layout { display: grid; grid-template-columns: 200px 1fr; gap: 24px; max-width: 1100px; }
+
+/* ── Sidebar TOC ───────────────────────── */
+.sc-toc {
+  position: sticky; top: 0; align-self: start;
+  padding: 16px 0;
+}
+.sc-toc-title {
+  font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text-tertiary); margin-bottom: 10px;
+  padding: 0 8px;
+}
+.sc-toc-file {
+  padding: 6px 8px; margin-bottom: 2px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);
+  cursor: pointer; transition: all var(--transition-fast);
+  display: flex; align-items: center; gap: 6px;
+}
+.sc-toc-file:hover { background: var(--surface); color: var(--text-primary); }
+.sc-toc-file.active { background: var(--accent-bg); color: var(--accent); }
+.sc-toc-file .icon { font-size: 0.9rem; }
+.sc-toc-sub {
+  padding: 3px 8px 3px 28px;
+  font-size: 0.7rem; color: var(--text-tertiary);
+  cursor: pointer; transition: all var(--transition-fast);
+  border-radius: var(--radius-sm);
+}
+.sc-toc-sub:hover { color: var(--text-secondary); background: var(--surface); }
+.sc-toc-meta {
+  padding: 8px; margin-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.65rem; color: var(--text-tertiary);
+  line-height: 1.6;
+}
+
+/* ── Content Area ──────────────────────── */
+.sc-content { min-width: 0; }
+
+.sc-file {
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); margin-bottom: 20px;
+  overflow: hidden; scroll-margin-top: 16px;
+}
+
+.sc-file-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sc-file-name {
+  font-size: 0.88rem; font-weight: 700; color: var(--text-primary);
+  font-family: var(--font-mono); display: flex; align-items: center; gap: 8px;
+}
+.sc-file-name .file-icon {
+  width: 18px; height: 18px; border-radius: 4px; display: flex;
+  align-items: center; justify-content: center; font-size: 0.7rem;
+}
+.sc-file-name .file-icon.thesis { background: var(--accent-bg); }
+.sc-file-name .file-icon.feedback { background: var(--info-bg); }
+.sc-file-meta {
+  display: flex; gap: 14px; font-size: 0.7rem; color: var(--text-tertiary);
+}
+.sc-file-meta span { display: flex; align-items: center; gap: 4px; }
+
+.sc-file-body {
+  padding: 20px 24px;
+  font-size: 0.82rem; line-height: 1.75;
+  color: var(--text-secondary);
+}
+
+/* ── Markdown ──────────────────────────── */
+.sc-file-body h1 {
+  font-size: 1.3rem; color: var(--text-primary); margin: 24px 0 12px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border-subtle);
+  scroll-margin-top: 16px;
+}
+.sc-file-body h1:first-child { margin-top: 0; }
+.sc-file-body h2 {
+  font-size: 1.05rem; color: var(--text-primary); margin: 20px 0 8px;
+  scroll-margin-top: 16px;
+}
+.sc-file-body h3 {
+  font-size: 0.9rem; color: var(--text-primary); margin: 16px 0 6px;
+  scroll-margin-top: 16px;
+}
+.sc-file-body p { margin: 8px 0; }
+.sc-file-body ul, .sc-file-body ol { margin: 8px 0; padding-left: 24px; }
+.sc-file-body li { margin: 4px 0; }
+.sc-file-body li ul, .sc-file-body li ol { margin: 2px 0; }
+.sc-file-body strong { color: var(--text-primary); font-weight: 600; }
+.sc-file-body em { font-style: italic; color: var(--text-secondary); }
+.sc-file-body code {
+  background: var(--bg-tertiary); padding: 1px 5px;
+  border-radius: 3px; font-family: var(--font-mono); font-size: 0.78rem;
+  color: var(--accent);
+}
+.sc-file-body pre {
+  background: var(--bg-tertiary); padding: 14px 16px;
+  border-radius: var(--radius-sm); overflow-x: auto;
+  font-family: var(--font-mono); font-size: 0.78rem;
+  line-height: 1.5; margin: 12px 0;
+  border: 1px solid var(--border-subtle);
+}
+.sc-file-body pre code {
+  background: none; padding: 0; color: var(--text-secondary);
+}
+.sc-file-body blockquote {
+  border-left: 3px solid var(--accent);
+  padding: 8px 14px; margin: 10px 0;
+  background: var(--accent-dim); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text-secondary); font-style: italic;
+}
+.sc-file-body hr {
+  border: none; border-top: 1px solid var(--border-subtle); margin: 20px 0;
+}
+.sc-file-body a {
+  color: var(--accent); text-decoration: none;
+  border-bottom: 1px solid rgba(201,164,74,0.3);
+  transition: border-color var(--transition-fast);
+}
+.sc-file-body a:hover { border-bottom-color: var(--accent); }
+
+/* ── Numbered list items ───────────────── */
+.sc-file-body ol { counter-reset: item; }
+.sc-file-body ol > li { counter-increment: item; }
+
+/* ── Timestamp highlights ──────────────── */
+.sc-file-body .timestamp {
+  font-size: 0.7rem; color: var(--text-tertiary);
+  font-family: var(--font-mono); font-style: normal;
+}
+
+.sc-loading { text-align: center; padding: 60px 20px; font-size: 0.85rem; color: var(--text-tertiary); }
+
+@media (max-width: 800px) {
+  .sc-layout { grid-template-columns: 1fr; }
+  .sc-toc { position: static; display: flex; gap: 8px; flex-wrap: wrap; padding: 0 0 12px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 12px; }
+  .sc-toc-title { display: none; }
+  .sc-toc-meta { display: none; }
+  .sc-toc-sub { display: none; }
+}
+</style>
 </head>
 <body>
-  <main class="main">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
-      <h1 style="font-size:1.5rem;font-weight:700;color:var(--text-primary);margin:0">📖 Shared Context</h1>
-      <button onclick="loadSC()" style="padding:0.4rem 1rem;border-radius:6px;background:var(--surface);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;font-size:0.8rem">↻ Refresh</button>
-    </div>
-    <p style="color:var(--text-tertiary);font-size:0.85rem;margin:-0.5rem 0 1.5rem">Cross-agent alignment files. Every agent reads these at session start. Gandalf is the sole writer.</p>
+<main class="main">
+  <div id="scRoot" class="sc-loading">Loading shared context…</div>
+</main>
+<script src="/lucide.min.js"></script>
+<script src="/layout.js"></script>
+<script>
+'use strict';
 
-    <div id="scGrid" class="sc-grid"><div class="sc-loading">Loading shared context…</div></div>
-  </main>
-  <script src="/layout.js"></script>
-  <script>
-    // Simple markdown to HTML (no library)
-    function md(text) {
-      if (!text) return '';
-      let html = text
-        // Escape HTML
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        // Blockquotes (before other processing)
-        .replace(/^>\s*(.*)$/gm, '<blockquote>$1</blockquote>')
-        // Headers
-        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-        // Bold + italic
-        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        // Inline code
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        // Horizontal rule
-        .replace(/^---+$/gm, '<hr>')
-        // Unordered lists
-        .replace(/^- (.+)$/gm, '<li>$1</li>')
-        // Wrap consecutive <li> in <ul>
-        .replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>')
-        // Paragraphs (double newline)
-        .replace(/\n\n/g, '</p><p>')
-        // Single newlines to <br> within paragraphs
-        .replace(/\n/g, '<br>');
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
 
-      // Merge adjacent blockquotes
-      html = html.replace(/<\/blockquote><br><blockquote>/g, '<br>');
+// ── Markdown renderer ──────────────────
+function renderMd(md) {
+  // Escape HTML first
+  let html = esc(md);
 
-      return '<p>' + html + '</p>';
+  // Code blocks (before other processing)
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+    '<pre><code>' + code.trim() + '</code></pre>'
+  );
+
+  // Headings (add IDs for TOC)
+  html = html.replace(/^### (.+)$/gm, (_, t) => '<h3 id="' + slugify(t) + '">' + t + '</h3>');
+  html = html.replace(/^## (.+)$/gm, (_, t) => '<h2 id="' + slugify(t) + '">' + t + '</h2>');
+  html = html.replace(/^# (.+)$/gm, (_, t) => '<h1 id="' + slugify(t) + '">' + t + '</h1>');
+
+  // Blockquotes
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // HR
+  html = html.replace(/^---+$/gm, '<hr>');
+
+  // Bold + italic
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  // Timestamps like (2026-02-28) or dates in parens
+  html = html.replace(/\((\d{4}-\d{2}-\d{2}[^)]*)\)/g, '(<span class="timestamp">$1</span>)');
+
+  // Lists — unordered
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  // Lists — ordered
+  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+
+  // Wrap consecutive <li> in <ul>
+  html = html.replace(/((?:<li>[\s\S]*?<\/li>\s*)+)/g, '<ul>$1</ul>');
+
+  // Paragraphs from double newlines
+  html = html.split('\n\n').map(block => {
+    block = block.trim();
+    if (!block) return '';
+    if (block.startsWith('<')) return block;
+    return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
+  }).join('\n');
+
+  // Clean up consecutive blockquotes
+  html = html.replace(/<\/blockquote>\s*<blockquote>/g, '<br>');
+
+  return html;
+}
+
+function slugify(text) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function extractHeadings(md) {
+  const headings = [];
+  md.split('\n').forEach(line => {
+    const m = line.match(/^(#{1,3}) (.+)/);
+    if (m) headings.push({ level: m[1].length, text: m[2], id: slugify(m[2]) });
+  });
+  return headings;
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function fileIcon(name) {
+  if (name.includes('THESIS')) return '<span class="file-icon thesis">📋</span>';
+  if (name.includes('FEEDBACK')) return '<span class="file-icon feedback">📝</span>';
+  return '<span class="file-icon">📄</span>';
+}
+
+async function load() {
+  const root = document.getElementById('scRoot');
+  try {
+    const res = await fetch('/api/shared-context');
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+
+    if (!data.files || data.files.length === 0) {
+      root.innerHTML = '<div class="sc-loading">No shared context files found in ~/shared-context/</div>';
+      return;
     }
 
-    function fmtDate(iso) {
-      if (!iso) return '';
-      const d = new Date(iso);
-      return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) +
-        ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
-    }
+    // Build TOC
+    let tocHtml = '<div class="sc-toc-title">Files</div>';
+    let totalSize = 0;
+    data.files.forEach((f, i) => {
+      totalSize += f.size;
+      const icon = f.name.includes('THESIS') ? '📋' : f.name.includes('FEEDBACK') ? '📝' : '📄';
+      tocHtml += '<div class="sc-toc-file' + (i === 0 ? ' active' : '') + '" onclick="scrollToFile(\'' + f.name + '\')" data-file="' + f.name + '">' +
+        '<span class="icon">' + icon + '</span>' + f.name +
+      '</div>';
+      // Sub-headings
+      extractHeadings(f.content).filter(h => h.level <= 2).forEach(h => {
+        tocHtml += '<div class="sc-toc-sub" onclick="document.getElementById(\'' + h.id + '\')?.scrollIntoView({behavior:\'smooth\',block:\'start\'})">' +
+          (h.level === 1 ? '' : '↳ ') + esc(h.text) +
+        '</div>';
+      });
+    });
+    tocHtml += '<div class="sc-toc-meta">' +
+      data.files.length + ' files<br>' +
+      fmtBytes(totalSize) + ' total<br>' +
+      'Modified: ' + fmtDate(data.files.reduce((latest, f) => f.modified > latest ? f.modified : latest, '')) +
+    '</div>';
 
-    function fmtBytes(b) {
-      if (b < 1024) return b + 'B';
-      return (b / 1024).toFixed(1) + 'KB';
-    }
+    // Build content
+    let contentHtml = '';
+    data.files.forEach((f, i) => {
+      contentHtml += '<div class="sc-file fade-up" style="animation-delay:' + (0.1 + i * 0.1) + 's" id="file-' + f.name + '">' +
+        '<div class="sc-file-header">' +
+          '<span class="sc-file-name">' + fileIcon(f.name) + ' ' + f.name + '</span>' +
+          '<span class="sc-file-meta">' +
+            '<span>' + fmtBytes(f.size) + '</span>' +
+            '<span>Modified ' + fmtDate(f.modified) + '</span>' +
+          '</span>' +
+        '</div>' +
+        '<div class="sc-file-body">' + renderMd(f.content) + '</div>' +
+      '</div>';
+    });
 
-    async function loadSC() {
-      try {
-        const r = await fetch('/api/shared-context');
-        const data = await r.json();
-        const el = document.getElementById('scGrid');
+    root.className = 'sc-layout';
+    root.innerHTML = '<nav class="sc-toc">' + tocHtml + '</nav><div class="sc-content">' + contentHtml + '</div>';
 
-        if (!data.files || !data.files.length) {
-          el.innerHTML = '<div class="sc-empty">No shared context files found.<br>Create files in <code>~/shared-context/</code> to get started.</div>';
-          return;
-        }
+  } catch (e) {
+    root.innerHTML = '<div class="sc-loading" style="color:var(--error)">Failed to load shared context</div>';
+  }
+}
 
-        el.innerHTML = data.files.map(f => `
-          <div class="sc-card">
-            <div class="sc-card-header">
-              <span class="sc-card-title">${f.name}</span>
-              <div class="sc-card-meta">
-                <span>${fmtBytes(f.size)}</span>
-                <span>Modified: ${fmtDate(f.modified)}</span>
-              </div>
-            </div>
-            <div class="sc-card-body">${md(f.content)}</div>
-          </div>
-        `).join('');
-      } catch (e) {
-        document.getElementById('scGrid').innerHTML = '<div class="sc-loading">Failed to load: ' + e.message + '</div>';
-      }
-    }
+function scrollToFile(name) {
+  const el = document.getElementById('file-' + name);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.querySelectorAll('.sc-toc-file').forEach(f => f.classList.toggle('active', f.dataset.file === name));
+}
 
-    loadSC();
-  </script>
+load();
+</script>
 </body>
 </html>

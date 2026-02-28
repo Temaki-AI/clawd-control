@@ -5,179 +5,498 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fellowship Operations — Clawd Control</title>
 <style>
-  .ops-container { max-width: 1200px; }
-  .ops-header { margin-bottom: 20px; }
-  .ops-header h1 { font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
-  .ops-header p { font-size: 13px; color: var(--text-secondary); }
+/* ═══════════════════════════════════════════
+   OPERATIONS — Fellowship overview
+   ═══════════════════════════════════════════ */
 
-  .ops-summary {
-    display: flex; gap: 12px; margin-bottom: 20px;
-  }
-  .summary-card {
-    background: var(--surface); border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md); padding: 12px 16px; flex: 1;
-  }
-  .summary-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-tertiary); }
-  .summary-val { font-size: 22px; font-weight: 700; margin-top: 2px; color: var(--text-primary); }
-  .summary-val.green { color: var(--success); }
-  .summary-val.yellow { color: var(--warning); }
-  .summary-val.red { color: var(--error); }
+/* ── Summary Stats ──────────────────────── */
+.ops-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); padding: 14px 16px;
+  position: relative;
+}
+.stat-card:hover { border-color: var(--border); }
+.stat-label {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-tertiary); margin-bottom: 4px; font-weight: 600;
+}
+.stat-value {
+  font-size: 1.5rem; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-sub { font-size: 0.7rem; color: var(--text-tertiary); margin-top: 4px; }
+.stat-dot {
+  position: absolute; top: 14px; right: 14px;
+  width: 6px; height: 6px; border-radius: 50%;
+}
 
-  .ops-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 16px;
-  }
+/* ── Alert Banner ──────────────────────── */
+.alerts-banner {
+  border-radius: var(--radius-md); margin-bottom: 16px;
+  overflow: hidden;
+}
+.alerts-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; cursor: pointer;
+  font-size: 0.8rem; font-weight: 600;
+  transition: background var(--transition-fast);
+}
+.alerts-header:hover { filter: brightness(1.1); }
+.alerts-header.critical { background: var(--error-bg); color: var(--error); border: 1px solid rgba(239,68,68,0.2); }
+.alerts-header.warning { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(245,158,11,0.2); }
+.alerts-header.clean { background: var(--success-bg); color: var(--success); border: 1px solid rgba(34,197,94,0.2); }
+.alerts-header .count {
+  font-size: 0.65rem; padding: 2px 8px; border-radius: 8px;
+  font-weight: 700; background: rgba(0,0,0,0.15);
+}
+.alerts-list {
+  max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+  background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+.alerts-list.open { max-height: 400px; overflow-y: auto; }
+.alert-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; font-size: 0.78rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.alert-row:last-child { border-bottom: none; }
+.alert-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.alert-dot.critical { background: var(--error); }
+.alert-dot.warning { background: var(--warning); }
+.alert-dot.info { background: var(--info); }
+.alert-agent { font-weight: 600; color: var(--text-primary); min-width: 80px; }
+.alert-msg { color: var(--text-secondary); flex: 1; }
 
-  .agent-card {
-    background: var(--surface); border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md); padding: 16px;
-    transition: all var(--transition-fast);
-    cursor: pointer; text-decoration: none; display: block; color: inherit;
-  }
-  .agent-card:hover { border-color: var(--border); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+/* ── Filter / Sort Bar ─────────────────── */
+.ops-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.ops-toolbar .label {
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-tertiary);
+}
+.filter-btn {
+  padding: 4px 10px; font-size: 0.68rem; font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle); background: var(--bg-primary);
+  color: var(--text-tertiary); cursor: pointer; font-family: var(--font-sans);
+  transition: all var(--transition-fast);
+}
+.filter-btn:hover { border-color: var(--border); color: var(--text-secondary); }
+.filter-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.ops-toolbar .spacer { flex: 1; }
+.sort-select {
+  padding: 4px 8px; font-size: 0.68rem; font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle); background: var(--bg-primary);
+  color: var(--text-secondary); cursor: pointer; font-family: var(--font-sans);
+}
 
-  .agent-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-  .agent-emoji { font-size: 28px; }
-  .agent-name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
-  .agent-model { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); margin-top: 1px; }
-  .agent-health { margin-left: auto; font-size: 20px; flex-shrink: 0; }
+/* ── Agent Grid ────────────────────────── */
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 12px;
+}
 
-  .agent-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-  .meta-item { background: var(--bg-tertiary); border-radius: var(--radius-sm); padding: 8px 10px; }
-  .meta-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-tertiary); margin-bottom: 2px; }
-  .meta-value { font-size: 13px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-  .meta-value.green { color: var(--success); }
-  .meta-value.yellow { color: var(--warning); }
-  .meta-value.red { color: var(--error); }
+.ops-card {
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); padding: 16px;
+  transition: all var(--transition-base); cursor: pointer;
+  text-decoration: none; display: block; color: inherit;
+  position: relative;
+}
+.ops-card:hover { border-color: var(--border); box-shadow: var(--shadow-md); }
+.ops-card.health-ok { border-left: 3px solid var(--success); }
+.ops-card.health-warn { border-left: 3px solid var(--warning); }
+.ops-card.health-crit { border-left: 3px solid var(--error); }
 
-  .agent-work {
-    background: var(--bg-secondary); border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm); padding: 10px 12px;
-    font-size: 12px; line-height: 1.5; color: var(--text-secondary);
-    white-space: pre-line; max-height: 80px; overflow: hidden; position: relative;
-  }
-  .agent-work::after {
-    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 24px;
-    background: linear-gradient(transparent, var(--bg-secondary));
-  }
-  .agent-work-empty { color: var(--text-tertiary); font-style: italic; }
+.ops-card-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+}
+.ops-emoji { font-size: 1.6rem; }
+.ops-name { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+.ops-model {
+  font-size: 0.68rem; color: var(--text-tertiary);
+  font-family: var(--font-mono); margin-top: 1px;
+}
+.ops-status {
+  margin-left: auto;
+  font-size: 0.6rem; padding: 2px 8px; border-radius: var(--radius-sm);
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.ops-status.online { background: var(--success-bg); color: var(--success); }
+.ops-status.idle { background: var(--warning-bg); color: var(--warning); }
+.ops-status.down { background: var(--error-bg); color: var(--error); }
 
-  .agent-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-  .agent-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
-  .agent-badge.hb { background: var(--success-bg); color: var(--success); }
-  .agent-badge.hb-off { background: var(--bg-tertiary); color: var(--text-tertiary); }
-  .agent-badge.cron { background: var(--info-bg); color: var(--info); }
-  .agent-badge.soul-warn { background: var(--warning-bg); color: var(--warning); }
-  .agent-badge.mem { background: var(--accent-bg); color: var(--accent); }
+/* ── Card Metrics ──────────────────────── */
+.ops-metrics {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  margin-bottom: 10px;
+}
+.ops-metric {
+  background: var(--bg-primary); border-radius: var(--radius-sm); padding: 6px 8px;
+  text-align: center;
+}
+.ops-metric-val {
+  font-size: 0.82rem; font-weight: 700; color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.ops-metric-lbl {
+  font-size: 0.55rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-tertiary); margin-top: 1px;
+}
 
-  .agent-alerts { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
-  .agent-alert {
-    font-size: 10px; padding: 3px 8px; border-radius: 4px;
-    border-left: 3px solid;
-  }
-  .agent-alert.critical { background: var(--error-bg); color: var(--error); border-color: var(--error); }
-  .agent-alert.warning { background: var(--warning-bg); color: var(--warning); border-color: var(--warning); }
-  .agent-alert.info { background: var(--info-bg); color: var(--info); border-color: var(--info); }
+/* ── Active Work ───────────────────────── */
+.ops-work {
+  background: var(--bg-primary); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); padding: 8px 10px;
+  font-size: 0.75rem; line-height: 1.5; color: var(--text-secondary);
+  max-height: 56px; overflow: hidden; position: relative;
+}
+.ops-work::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 20px;
+  background: linear-gradient(transparent, var(--bg-primary));
+  pointer-events: none;
+}
+.ops-work.empty {
+  color: var(--text-tertiary); font-style: italic;
+  max-height: none;
+}
+.ops-work.empty::after { display: none; }
 
-  .ops-loading { text-align: center; padding: 60px 20px; font-size: 14px; color: var(--text-tertiary); }
+/* ── Card Badges ───────────────────────── */
+.ops-badges {
+  display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px;
+}
+.ops-badge {
+  font-size: 0.6rem; font-weight: 600; padding: 2px 7px;
+  border-radius: 8px; display: inline-flex; align-items: center; gap: 3px;
+}
+.ops-badge.hb { background: var(--success-bg); color: var(--success); }
+.ops-badge.hb-off { background: var(--bg-primary); color: var(--text-tertiary); border: 1px solid var(--border-subtle); }
+.ops-badge.cron { background: var(--info-bg); color: var(--info); }
+.ops-badge.tasks { background: var(--accent-bg); color: var(--accent); }
+.ops-badge.soul-warn { background: var(--warning-bg); color: var(--warning); }
+
+/* ── Card Alerts ───────────────────────── */
+.ops-card-alerts {
+  display: flex; flex-direction: column; gap: 3px; margin-top: 8px;
+  padding-top: 8px; border-top: 1px solid var(--border-subtle);
+}
+.ops-card-alert {
+  font-size: 0.68rem; padding: 3px 8px; border-radius: 4px;
+  display: flex; align-items: center; gap: 6px;
+}
+.ops-card-alert.critical { background: var(--error-bg); color: var(--error); }
+.ops-card-alert.warning { background: var(--warning-bg); color: var(--warning); }
+.ops-card-alert.info { background: var(--info-bg); color: var(--info); }
+
+/* ── File Health Dots ──────────────────── */
+.file-dots {
+  display: flex; gap: 3px; align-items: center;
+  margin-top: 6px;
+}
+.file-dot {
+  width: 14px; height: 14px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 7px; font-weight: 700;
+  cursor: help;
+}
+.file-dot.exists { background: var(--success-bg); color: var(--success); }
+.file-dot.missing { background: var(--bg-primary); color: var(--text-tertiary); border: 1px solid var(--border-subtle); }
+
+.ops-loading { text-align: center; padding: 60px 20px; font-size: 0.85rem; color: var(--text-tertiary); }
+
+@media (max-width: 800px) {
+  .ops-stats { grid-template-columns: repeat(2, 1fr); }
+  .ops-grid { grid-template-columns: 1fr; }
+  .ops-metrics { grid-template-columns: repeat(2, 1fr); }
+}
 </style>
 </head>
 <body>
 <main class="main">
-  <div class="ops-container">
-    <div class="ops-header">
-      <h1>Fellowship Operations</h1>
-      <p>All agents at a glance — activity, health, alerts, and current work</p>
-    </div>
-    <div id="opsSummary"></div>
-    <div id="opsGrid" class="ops-loading">Loading agents…</div>
+
+  <!-- Stats -->
+  <div class="ops-stats" id="opsStats"></div>
+
+  <!-- Alerts Banner -->
+  <div id="alertsBanner"></div>
+
+  <!-- Toolbar -->
+  <div class="ops-toolbar">
+    <span class="label">Filter</span>
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="ok" onclick="setFilter('ok')">🟢 Healthy</button>
+    <button class="filter-btn" data-filter="warn" onclick="setFilter('warn')">🟡 Idle</button>
+    <button class="filter-btn" data-filter="crit" onclick="setFilter('crit')">🔴 Down</button>
+    <button class="filter-btn" data-filter="alerts" onclick="setFilter('alerts')">⚠ Has Alerts</button>
+    <span class="spacer"></span>
+    <span class="label">Sort</span>
+    <select class="sort-select" id="sortSelect" onchange="applySort()">
+      <option value="name">Name</option>
+      <option value="health">Health (worst first)</option>
+      <option value="activity">Last Active</option>
+      <option value="alerts">Alert Count</option>
+      <option value="memory">Memory Size</option>
+    </select>
   </div>
+
+  <!-- Grid -->
+  <div id="opsGrid" class="ops-loading">Loading agents…</div>
+
 </main>
 <script src="/lucide.min.js"></script>
 <script src="/layout.js"></script>
 <script>
-(async function() {
-  const grid = document.getElementById('opsGrid');
-  const summaryEl = document.getElementById('opsSummary');
-  function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+'use strict';
 
+let opsData = null;
+let currentFilter = 'all';
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+async function loadData() {
+  const grid = document.getElementById('opsGrid');
   try {
     const res = await fetch('/api/operations');
     if (!res.ok) throw new Error('API error');
-    const data = await res.json();
+    opsData = await res.json();
+    renderAll();
+  } catch (e) {
+    grid.innerHTML = '<div class="ops-loading" style="color:var(--error)">Failed to load operations data</div>';
+  }
+}
 
-    if (!data.agents || data.agents.length === 0) {
-      grid.innerHTML = '<div class="ops-loading">No agents configured</div>';
-      return;
+function renderAll() {
+  if (!opsData) return;
+  renderStats();
+  renderAlerts();
+  renderGrid();
+}
+
+function renderStats() {
+  const agents = opsData.agents || [];
+  const s = opsData.summary || {};
+  const now = Date.now();
+  const active24h = agents.filter(a => a.lastActivity && (now - new Date(a.lastActivity).getTime()) < 24*3600000).length;
+  const withHb = agents.filter(a => a.hasHeartbeat).length;
+
+  document.getElementById('opsStats').innerHTML = `
+    <div class="stat-card fade-up" style="animation-delay:.05s">
+      <div class="stat-label">Agents</div>
+      <div class="stat-value" style="color:var(--accent)">${agents.length}</div>
+      <div class="stat-sub">Configured</div>
+      <div class="stat-dot" style="background:var(--accent)"></div>
+    </div>
+    <div class="stat-card fade-up" style="animation-delay:.1s">
+      <div class="stat-label">Active (24h)</div>
+      <div class="stat-value" style="color:var(--success)">${active24h}</div>
+      <div class="stat-sub">of ${agents.length} agents</div>
+      <div class="stat-dot" style="background:${active24h === agents.length ? 'var(--success)' : 'var(--warning)'}"></div>
+    </div>
+    <div class="stat-card fade-up" style="animation-delay:.15s">
+      <div class="stat-label">Heartbeats</div>
+      <div class="stat-value" style="color:var(--info)">${withHb}</div>
+      <div class="stat-sub">${agents.length - withHb} without</div>
+      <div class="stat-dot" style="background:var(--info)"></div>
+    </div>
+    <div class="stat-card fade-up" style="animation-delay:.2s">
+      <div class="stat-label">Alerts</div>
+      <div class="stat-value" style="color:${s.criticalAlerts > 0 ? 'var(--error)' : s.warningAlerts > 0 ? 'var(--warning)' : 'var(--success)'}">${s.totalAlerts || 0}</div>
+      <div class="stat-sub">${s.criticalAlerts || 0} critical, ${s.warningAlerts || 0} warning</div>
+      <div class="stat-dot" style="background:${s.criticalAlerts > 0 ? 'var(--error)' : s.warningAlerts > 0 ? 'var(--warning)' : 'var(--success)'}"></div>
+    </div>
+  `;
+}
+
+function renderAlerts() {
+  const agents = opsData.agents || [];
+  const allAlerts = [];
+  agents.forEach(a => {
+    (a.alerts || []).forEach(al => allAlerts.push({ agent: a.emoji + ' ' + a.name, ...al }));
+  });
+  allAlerts.sort((a, b) => {
+    const sev = { critical: 0, warning: 1, info: 2 };
+    return (sev[a.severity] || 3) - (sev[b.severity] || 3);
+  });
+
+  const banner = document.getElementById('alertsBanner');
+  if (allAlerts.length === 0) {
+    banner.innerHTML = '<div class="alerts-banner"><div class="alerts-header clean" onclick="toggleAlerts()">✓ All systems nominal <span class="count">' + agents.length + ' agents healthy</span></div></div>';
+    return;
+  }
+
+  const critical = allAlerts.filter(a => a.severity === 'critical').length;
+  const cls = critical > 0 ? 'critical' : 'warning';
+  const label = critical > 0 ? '⚠ ' + critical + ' critical alert' + (critical > 1 ? 's' : '') : '⚡ ' + allAlerts.length + ' alert' + (allAlerts.length > 1 ? 's' : '') + ' across fleet';
+
+  banner.innerHTML = `
+    <div class="alerts-banner">
+      <div class="alerts-header ${cls}" onclick="toggleAlerts()">
+        ${label}
+        <span class="count">${allAlerts.length} total</span>
+      </div>
+      <div class="alerts-list" id="alertsList">
+        ${allAlerts.map(a => `
+          <div class="alert-row">
+            <span class="alert-dot ${a.severity}"></span>
+            <span class="alert-agent">${esc(a.agent)}</span>
+            <span class="alert-msg">${esc(a.message)}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function toggleAlerts() {
+  const list = document.getElementById('alertsList');
+  if (list) list.classList.toggle('open');
+}
+
+function getAgentHealth(a) {
+  const now = Date.now();
+  const lastMs = a.lastActivity ? new Date(a.lastActivity).getTime() : 0;
+  const ago = lastMs ? now - lastMs : Infinity;
+  if (ago > 48*3600000 || !lastMs) return 'crit';
+  if (ago > 24*3600000) return 'warn';
+  return 'ok';
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+  renderGrid();
+}
+
+function applySort() { renderGrid(); }
+
+function renderGrid() {
+  const grid = document.getElementById('opsGrid');
+  let agents = [...(opsData.agents || [])];
+
+  // Filter
+  if (currentFilter !== 'all') {
+    agents = agents.filter(a => {
+      const h = getAgentHealth(a);
+      if (currentFilter === 'ok') return h === 'ok';
+      if (currentFilter === 'warn') return h === 'warn';
+      if (currentFilter === 'crit') return h === 'crit';
+      if (currentFilter === 'alerts') return (a.alerts || []).length > 0;
+      return true;
+    });
+  }
+
+  // Sort
+  const sortBy = document.getElementById('sortSelect').value;
+  agents.sort((a, b) => {
+    if (sortBy === 'health') {
+      const order = { crit: 0, warn: 1, ok: 2 };
+      return (order[getAgentHealth(a)] || 3) - (order[getAgentHealth(b)] || 3);
     }
+    if (sortBy === 'activity') {
+      const ta = a.lastActivity ? new Date(a.lastActivity).getTime() : 0;
+      const tb = b.lastActivity ? new Date(b.lastActivity).getTime() : 0;
+      return tb - ta;
+    }
+    if (sortBy === 'alerts') return (b.alerts?.length || 0) - (a.alerts?.length || 0);
+    if (sortBy === 'memory') return (b.memoryTotalBytes || 0) - (a.memoryTotalBytes || 0);
+    return (a.name || '').localeCompare(b.name || '');
+  });
 
-    // Summary bar
-    const s = data.summary || {};
-    const onlineCount = data.agents.filter(a => {
-      if (!a.lastActivity) return false;
-      return (Date.now() - new Date(a.lastActivity).getTime()) < 24*3600000;
-    }).length;
-    summaryEl.innerHTML =
-      '<div class="ops-summary">' +
-        '<div class="summary-card"><div class="summary-label">Agents</div><div class="summary-val">' + data.agents.length + '</div></div>' +
-        '<div class="summary-card"><div class="summary-label">Active (24h)</div><div class="summary-val green">' + onlineCount + '</div></div>' +
-        '<div class="summary-card"><div class="summary-label">Alerts</div><div class="summary-val' + (s.criticalAlerts > 0 ? ' red' : s.warningAlerts > 0 ? ' yellow' : '') + '">' + (s.totalAlerts || 0) + '</div></div>' +
-        '<div class="summary-card"><div class="summary-label">Critical</div><div class="summary-val' + (s.criticalAlerts > 0 ? ' red' : '') + '">' + (s.criticalAlerts || 0) + '</div></div>' +
-      '</div>';
+  if (agents.length === 0) {
+    grid.innerHTML = '<div class="ops-loading">No agents match filter</div>';
+    grid.className = 'ops-loading';
+    return;
+  }
 
-    grid.className = 'ops-grid';
-    grid.innerHTML = data.agents.map(a => {
-      const now = Date.now();
-      const lastMs = a.lastActivity ? new Date(a.lastActivity).getTime() : 0;
-      const ago = lastMs ? now - lastMs : Infinity;
-      let health, hc;
-      if (ago > 48*3600000 || !lastMs) { health = '🔴'; hc = 'red'; }
-      else if (ago > 24*3600000) { health = '🟡'; hc = 'yellow'; }
-      else { health = '🟢'; hc = 'green'; }
+  grid.className = 'ops-grid';
+  grid.innerHTML = agents.map((a, i) => {
+    const h = getAgentHealth(a);
+    const now = Date.now();
+    const lastMs = a.lastActivity ? new Date(a.lastActivity).getTime() : 0;
+    const lastText = lastMs ? timeAgo(lastMs) : 'never';
+    const model = a.model ? a.model.replace(/^anthropic\//, '').replace(/^openai\//, '') : '—';
 
-      const lastText = lastMs ? timeAgo(lastMs) : 'never';
-      const model = a.model ? a.model.replace(/^anthropic\//, '').replace(/^openai\//, '') : '—';
-      const mem = a.memoryTotalBytes > 0 ? fmtBytes(a.memoryTotalBytes) + ' (' + a.memoryFileCount + ' files)' : 'none';
+    // Status label
+    let statusCls, statusLabel;
+    if (h === 'crit') { statusCls = 'down'; statusLabel = '● Down'; }
+    else if (h === 'warn') { statusCls = 'idle'; statusLabel = '◐ Idle'; }
+    else { statusCls = 'online'; statusLabel = '● Active'; }
 
-      const work = a.activeWorkSummary
-        ? '<div class="agent-work">' + esc(a.activeWorkSummary) + '</div>'
-        : '<div class="agent-work agent-work-empty">No active work</div>';
+    // Metrics
+    const mem = a.memoryTotalBytes > 0 ? fmtBytes(a.memoryTotalBytes) : '—';
 
-      let badges = '';
-      if (a.hasHeartbeat) badges += '<span class="agent-badge hb">♥ Heartbeat</span>';
-      else badges += '<span class="agent-badge hb-off">No HB</span>';
-      if (a.cronCount > 0) badges += '<span class="agent-badge cron">⏱ ' + a.cronCount + ' crons</span>';
-      if (a.soulLineCount > 60) badges += '<span class="agent-badge soul-warn">⚠ SOUL ' + a.soulLineCount + 'L</span>';
-      badges += '<span class="agent-badge mem">🧠 ' + mem + '</span>';
+    // Active work
+    const work = a.activeWorkSummary
+      ? '<div class="ops-work">' + esc(a.activeWorkSummary) + '</div>'
+      : '<div class="ops-work empty">No active work</div>';
 
-      let alertsHtml = '';
-      if (a.alerts && a.alerts.length > 0) {
-        alertsHtml = '<div class="agent-alerts">' +
-          a.alerts.map(al => '<div class="agent-alert ' + al.severity + '">' + esc(al.message) + '</div>').join('') +
-        '</div>';
-      }
+    // Badges
+    let badges = '';
+    if (a.hasHeartbeat) badges += '<span class="ops-badge hb">♥ HB</span>';
+    else badges += '<span class="ops-badge hb-off">No HB</span>';
+    if (a.cronCount > 0) badges += '<span class="ops-badge cron">⏱ ' + a.cronCount + '</span>';
+    if (a.hasTasks) badges += '<span class="ops-badge tasks">📋 Tasks</span>';
+    if (a.soulLineCount > 60) badges += '<span class="ops-badge soul-warn">SOUL ' + a.soulLineCount + 'L</span>';
 
-      return '<a href="/agent/' + encodeURIComponent(a.id) + '" class="agent-card fade-up">' +
-        '<div class="agent-card-top">' +
-          '<span class="agent-emoji">' + a.emoji + '</span>' +
-          '<div><div class="agent-name">' + esc(a.name) + '</div><div class="agent-model">' + esc(model) + '</div></div>' +
-          '<span class="agent-health">' + health + '</span>' +
-        '</div>' +
-        '<div class="agent-meta">' +
-          '<div class="meta-item"><div class="meta-label">Last Active</div><div class="meta-value ' + hc + '">' + lastText + '</div></div>' +
-          '<div class="meta-item"><div class="meta-label">SOUL.md</div><div class="meta-value' + (a.soulLineCount > 60 ? ' yellow' : '') + '">' + a.soulLineCount + ' lines</div></div>' +
-        '</div>' +
-        work +
-        '<div class="agent-badges">' + badges + '</div>' +
-        alertsHtml +
-      '</a>';
+    // File health dots
+    const fh = a.fileHealth || {};
+    const files = ['SOUL.md','MEMORY.md','HEARTBEAT.md','ACTIVE_WORK.md','TASKS.md','IDENTITY.md'];
+    const dots = files.map(f => {
+      const short = f.replace('.md','').substring(0,2).toUpperCase();
+      const exists = fh[f]?.exists;
+      return '<span class="file-dot ' + (exists ? 'exists' : 'missing') + '" title="' + f + (exists ? ' ✓' : ' missing') + '">' + short + '</span>';
     }).join('');
 
-  } catch (e) {
-    grid.innerHTML = '<div class="ops-loading" style="color:var(--error)">Failed to load: ' + esc(e.message) + '</div>';
-  }
-})();
+    // Alerts
+    let alertsHtml = '';
+    if (a.alerts && a.alerts.length > 0) {
+      alertsHtml = '<div class="ops-card-alerts">' +
+        a.alerts.slice(0, 3).map(al => '<div class="ops-card-alert ' + al.severity + '">⚠ ' + esc(al.message) + '</div>').join('') +
+        (a.alerts.length > 3 ? '<div class="ops-card-alert info">+' + (a.alerts.length - 3) + ' more</div>' : '') +
+      '</div>';
+    }
+
+    return '<a href="/agent/' + encodeURIComponent(a.id) + '" class="ops-card health-' + h + ' fade-up" style="animation-delay:' + (0.05 + i * 0.04) + 's">' +
+      '<div class="ops-card-header">' +
+        '<span class="ops-emoji">' + a.emoji + '</span>' +
+        '<div><div class="ops-name">' + esc(a.name) + '</div><div class="ops-model">' + esc(model) + '</div></div>' +
+        '<span class="ops-status ' + statusCls + '">' + statusLabel + '</span>' +
+      '</div>' +
+      '<div class="ops-metrics">' +
+        '<div class="ops-metric"><div class="ops-metric-val">' + lastText + '</div><div class="ops-metric-lbl">Last Active</div></div>' +
+        '<div class="ops-metric"><div class="ops-metric-val">' + a.soulLineCount + '</div><div class="ops-metric-lbl">Soul Lines</div></div>' +
+        '<div class="ops-metric"><div class="ops-metric-val">' + mem + '</div><div class="ops-metric-lbl">Memory</div></div>' +
+        '<div class="ops-metric"><div class="ops-metric-val">' + a.memoryFileCount + '</div><div class="ops-metric-lbl">Files</div></div>' +
+      '</div>' +
+      work +
+      '<div class="file-dots">' + dots + '</div>' +
+      '<div class="ops-badges">' + badges + '</div>' +
+      alertsHtml +
+    '</a>';
+  }).join('');
+}
+
+loadData();
+
+// Auto-refresh every 30s
+setInterval(loadData, 30000);
 </script>
 </body>
 </html>
