@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shared Context — Clawd Control</title>
+  <style>
+    .sc-grid { display:flex; flex-direction:column; gap:1.5rem; }
+    .sc-card { background:var(--bg-secondary); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .sc-card-header { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.5rem; border-bottom:1px solid var(--border); background:var(--bg-tertiary); }
+    .sc-card-title { font-size:1rem; font-weight:600; color:var(--text-primary); font-family:monospace; }
+    .sc-card-meta { font-size:0.75rem; color:var(--text-tertiary); display:flex; gap:1rem; }
+    .sc-card-body { padding:1.5rem; font-size:0.88rem; line-height:1.7; color:var(--text-secondary); }
+    .sc-card-body h1 { font-size:1.2rem; font-weight:700; color:var(--text-primary); margin:1.5rem 0 0.75rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem; }
+    .sc-card-body h1:first-child { margin-top:0; }
+    .sc-card-body h2 { font-size:1rem; font-weight:600; color:var(--text-primary); margin:1.25rem 0 0.5rem; }
+    .sc-card-body h3 { font-size:0.9rem; font-weight:600; color:var(--text-primary); margin:1rem 0 0.4rem; }
+    .sc-card-body strong { color:var(--text-primary); }
+    .sc-card-body ul, .sc-card-body ol { padding-left:1.5rem; margin:0.5rem 0; }
+    .sc-card-body li { margin:0.3rem 0; }
+    .sc-card-body code { background:var(--bg-tertiary); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.82rem; color:var(--accent); }
+    .sc-card-body blockquote { border-left:3px solid var(--accent); padding:0.5rem 1rem; margin:0.75rem 0; color:var(--text-tertiary); font-style:italic; background:var(--bg-tertiary); border-radius:0 6px 6px 0; }
+    .sc-card-body hr { border:none; border-top:1px solid var(--border); margin:1rem 0; }
+    .sc-loading { text-align:center; padding:3rem; color:var(--text-tertiary); }
+    .sc-empty { text-align:center; padding:3rem; color:var(--text-tertiary); }
+    .sc-empty code { background:var(--bg-tertiary); padding:0.2rem 0.5rem; border-radius:3px; }
+  </style>
+</head>
+<body>
+  <main class="main">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
+      <h1 style="font-size:1.5rem;font-weight:700;color:var(--text-primary);margin:0">📖 Shared Context</h1>
+      <button onclick="loadSC()" style="padding:0.4rem 1rem;border-radius:6px;background:var(--surface);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;font-size:0.8rem">↻ Refresh</button>
+    </div>
+    <p style="color:var(--text-tertiary);font-size:0.85rem;margin:-0.5rem 0 1.5rem">Cross-agent alignment files. Every agent reads these at session start. Gandalf is the sole writer.</p>
+
+    <div id="scGrid" class="sc-grid"><div class="sc-loading">Loading shared context…</div></div>
+  </main>
+  <script src="/layout.js"></script>
+  <script>
+    // Simple markdown to HTML (no library)
+    function md(text) {
+      if (!text) return '';
+      let html = text
+        // Escape HTML
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        // Blockquotes (before other processing)
+        .replace(/^>\s*(.*)$/gm, '<blockquote>$1</blockquote>')
+        // Headers
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        // Bold + italic
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Horizontal rule
+        .replace(/^---+$/gm, '<hr>')
+        // Unordered lists
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        // Wrap consecutive <li> in <ul>
+        .replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>')
+        // Paragraphs (double newline)
+        .replace(/\n\n/g, '</p><p>')
+        // Single newlines to <br> within paragraphs
+        .replace(/\n/g, '<br>');
+
+      // Merge adjacent blockquotes
+      html = html.replace(/<\/blockquote><br><blockquote>/g, '<br>');
+
+      return '<p>' + html + '</p>';
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) +
+        ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    }
+
+    function fmtBytes(b) {
+      if (b < 1024) return b + 'B';
+      return (b / 1024).toFixed(1) + 'KB';
+    }
+
+    async function loadSC() {
+      try {
+        const r = await fetch('/api/shared-context');
+        const data = await r.json();
+        const el = document.getElementById('scGrid');
+
+        if (!data.files || !data.files.length) {
+          el.innerHTML = '<div class="sc-empty">No shared context files found.<br>Create files in <code>~/shared-context/</code> to get started.</div>';
+          return;
+        }
+
+        el.innerHTML = data.files.map(f => `
+          <div class="sc-card">
+            <div class="sc-card-header">
+              <span class="sc-card-title">${f.name}</span>
+              <div class="sc-card-meta">
+                <span>${fmtBytes(f.size)}</span>
+                <span>Modified: ${fmtDate(f.modified)}</span>
+              </div>
+            </div>
+            <div class="sc-card-body">${md(f.content)}</div>
+          </div>
+        `).join('');
+      } catch (e) {
+        document.getElementById('scGrid').innerHTML = '<div class="sc-loading">Failed to load: ' + e.message + '</div>';
+      }
+    }
+
+    loadSC();
+  </script>
+</body>
+</html>

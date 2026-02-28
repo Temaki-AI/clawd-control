@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fellowship Operations — Clawd Control</title>
+<style>
+  .ops-container { max-width: 1200px; }
+  .ops-header { margin-bottom: 20px; }
+  .ops-header h1 { font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+  .ops-header p { font-size: 13px; color: var(--text-secondary); }
+
+  .ops-summary {
+    display: flex; gap: 12px; margin-bottom: 20px;
+  }
+  .summary-card {
+    background: var(--surface); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md); padding: 12px 16px; flex: 1;
+  }
+  .summary-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-tertiary); }
+  .summary-val { font-size: 22px; font-weight: 700; margin-top: 2px; color: var(--text-primary); }
+  .summary-val.green { color: var(--success); }
+  .summary-val.yellow { color: var(--warning); }
+  .summary-val.red { color: var(--error); }
+
+  .ops-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+
+  .agent-card {
+    background: var(--surface); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md); padding: 16px;
+    transition: all var(--transition-fast);
+    cursor: pointer; text-decoration: none; display: block; color: inherit;
+  }
+  .agent-card:hover { border-color: var(--border); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+
+  .agent-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .agent-emoji { font-size: 28px; }
+  .agent-name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+  .agent-model { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); margin-top: 1px; }
+  .agent-health { margin-left: auto; font-size: 20px; flex-shrink: 0; }
+
+  .agent-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .meta-item { background: var(--bg-tertiary); border-radius: var(--radius-sm); padding: 8px 10px; }
+  .meta-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-tertiary); margin-bottom: 2px; }
+  .meta-value { font-size: 13px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .meta-value.green { color: var(--success); }
+  .meta-value.yellow { color: var(--warning); }
+  .meta-value.red { color: var(--error); }
+
+  .agent-work {
+    background: var(--bg-secondary); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm); padding: 10px 12px;
+    font-size: 12px; line-height: 1.5; color: var(--text-secondary);
+    white-space: pre-line; max-height: 80px; overflow: hidden; position: relative;
+  }
+  .agent-work::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 24px;
+    background: linear-gradient(transparent, var(--bg-secondary));
+  }
+  .agent-work-empty { color: var(--text-tertiary); font-style: italic; }
+
+  .agent-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .agent-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .agent-badge.hb { background: var(--success-bg); color: var(--success); }
+  .agent-badge.hb-off { background: var(--bg-tertiary); color: var(--text-tertiary); }
+  .agent-badge.cron { background: var(--info-bg); color: var(--info); }
+  .agent-badge.soul-warn { background: var(--warning-bg); color: var(--warning); }
+  .agent-badge.mem { background: var(--accent-bg); color: var(--accent); }
+
+  .agent-alerts { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .agent-alert {
+    font-size: 10px; padding: 3px 8px; border-radius: 4px;
+    border-left: 3px solid;
+  }
+  .agent-alert.critical { background: var(--error-bg); color: var(--error); border-color: var(--error); }
+  .agent-alert.warning { background: var(--warning-bg); color: var(--warning); border-color: var(--warning); }
+  .agent-alert.info { background: var(--info-bg); color: var(--info); border-color: var(--info); }
+
+  .ops-loading { text-align: center; padding: 60px 20px; font-size: 14px; color: var(--text-tertiary); }
+</style>
+</head>
+<body>
+<main class="main">
+  <div class="ops-container">
+    <div class="ops-header">
+      <h1>Fellowship Operations</h1>
+      <p>All agents at a glance — activity, health, alerts, and current work</p>
+    </div>
+    <div id="opsSummary"></div>
+    <div id="opsGrid" class="ops-loading">Loading agents…</div>
+  </div>
+</main>
+<script src="/lucide.min.js"></script>
+<script src="/layout.js"></script>
+<script>
+(async function() {
+  const grid = document.getElementById('opsGrid');
+  const summaryEl = document.getElementById('opsSummary');
+  function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  try {
+    const res = await fetch('/api/operations');
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+
+    if (!data.agents || data.agents.length === 0) {
+      grid.innerHTML = '<div class="ops-loading">No agents configured</div>';
+      return;
+    }
+
+    // Summary bar
+    const s = data.summary || {};
+    const onlineCount = data.agents.filter(a => {
+      if (!a.lastActivity) return false;
+      return (Date.now() - new Date(a.lastActivity).getTime()) < 24*3600000;
+    }).length;
+    summaryEl.innerHTML =
+      '<div class="ops-summary">' +
+        '<div class="summary-card"><div class="summary-label">Agents</div><div class="summary-val">' + data.agents.length + '</div></div>' +
+        '<div class="summary-card"><div class="summary-label">Active (24h)</div><div class="summary-val green">' + onlineCount + '</div></div>' +
+        '<div class="summary-card"><div class="summary-label">Alerts</div><div class="summary-val' + (s.criticalAlerts > 0 ? ' red' : s.warningAlerts > 0 ? ' yellow' : '') + '">' + (s.totalAlerts || 0) + '</div></div>' +
+        '<div class="summary-card"><div class="summary-label">Critical</div><div class="summary-val' + (s.criticalAlerts > 0 ? ' red' : '') + '">' + (s.criticalAlerts || 0) + '</div></div>' +
+      '</div>';
+
+    grid.className = 'ops-grid';
+    grid.innerHTML = data.agents.map(a => {
+      const now = Date.now();
+      const lastMs = a.lastActivity ? new Date(a.lastActivity).getTime() : 0;
+      const ago = lastMs ? now - lastMs : Infinity;
+      let health, hc;
+      if (ago > 48*3600000 || !lastMs) { health = '🔴'; hc = 'red'; }
+      else if (ago > 24*3600000) { health = '🟡'; hc = 'yellow'; }
+      else { health = '🟢'; hc = 'green'; }
+
+      const lastText = lastMs ? timeAgo(lastMs) : 'never';
+      const model = a.model ? a.model.replace(/^anthropic\//, '').replace(/^openai\//, '') : '—';
+      const mem = a.memoryTotalBytes > 0 ? fmtBytes(a.memoryTotalBytes) + ' (' + a.memoryFileCount + ' files)' : 'none';
+
+      const work = a.activeWorkSummary
+        ? '<div class="agent-work">' + esc(a.activeWorkSummary) + '</div>'
+        : '<div class="agent-work agent-work-empty">No active work</div>';
+
+      let badges = '';
+      if (a.hasHeartbeat) badges += '<span class="agent-badge hb">♥ Heartbeat</span>';
+      else badges += '<span class="agent-badge hb-off">No HB</span>';
+      if (a.cronCount > 0) badges += '<span class="agent-badge cron">⏱ ' + a.cronCount + ' crons</span>';
+      if (a.soulLineCount > 60) badges += '<span class="agent-badge soul-warn">⚠ SOUL ' + a.soulLineCount + 'L</span>';
+      badges += '<span class="agent-badge mem">🧠 ' + mem + '</span>';
+
+      let alertsHtml = '';
+      if (a.alerts && a.alerts.length > 0) {
+        alertsHtml = '<div class="agent-alerts">' +
+          a.alerts.map(al => '<div class="agent-alert ' + al.severity + '">' + esc(al.message) + '</div>').join('') +
+        '</div>';
+      }
+
+      return '<a href="/agent/' + encodeURIComponent(a.id) + '" class="agent-card fade-up">' +
+        '<div class="agent-card-top">' +
+          '<span class="agent-emoji">' + a.emoji + '</span>' +
+          '<div><div class="agent-name">' + esc(a.name) + '</div><div class="agent-model">' + esc(model) + '</div></div>' +
+          '<span class="agent-health">' + health + '</span>' +
+        '</div>' +
+        '<div class="agent-meta">' +
+          '<div class="meta-item"><div class="meta-label">Last Active</div><div class="meta-value ' + hc + '">' + lastText + '</div></div>' +
+          '<div class="meta-item"><div class="meta-label">SOUL.md</div><div class="meta-value' + (a.soulLineCount > 60 ? ' yellow' : '') + '">' + a.soulLineCount + ' lines</div></div>' +
+        '</div>' +
+        work +
+        '<div class="agent-badges">' + badges + '</div>' +
+        alertsHtml +
+      '</a>';
+    }).join('');
+
+  } catch (e) {
+    grid.innerHTML = '<div class="ops-loading" style="color:var(--error)">Failed to load: ' + esc(e.message) + '</div>';
+  }
+})();
+</script>
+</body>
+</html>

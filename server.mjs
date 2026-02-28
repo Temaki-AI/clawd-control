@@ -1458,6 +1458,152 @@ const server = createServer((req, res) => {
     return;
   }
 
+  // ── Shared Context ──
+  if (path === '/api/shared-context' && req.method === 'GET') {
+    try {
+      const scDir = join(process.env.HOME || '/Users/openclaw', 'shared-context');
+      const files = [];
+      if (existsSync(scDir)) {
+        for (const f of readdirSync(scDir).filter(f => f.endsWith('.md')).sort()) {
+          const fp = join(scDir, f);
+          const st = statSync(fp);
+          const content = readFileSync(fp, 'utf8');
+          files.push({ name: f, content, size: st.size, modified: st.mtime.toISOString() });
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ files }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      console.error('[API] /api/shared-context error:', e.message);
+      res.end(JSON.stringify({ error: 'Failed to read shared context' }));
+    }
+    return;
+  }
+
+  // ── Operations Overview ──
+  if (path === '/api/operations' && req.method === 'GET') {
+    try {
+      const agents = (collector.config?.agents || []).map(agentConfig => {
+        const ws = agentConfig.workspace;
+        const id = agentConfig.id;
+
+        const safeReadOps = (file) => {
+          const p = join(ws, file);
+          if (!existsSync(p)) return null;
+          try { return readFileSync(p, 'utf8'); } catch { return null; }
+        };
+
+        const safeStatOps = (file) => {
+          const p = join(ws, file);
+          if (!existsSync(p)) return null;
+          try { return statSync(p); } catch { return null; }
+        };
+
+        // Read key files
+        const soul = safeReadOps('SOUL.md');
+        const memory = safeReadOps('MEMORY.md');
+        const heartbeat = safeReadOps('HEARTBEAT.md');
+        const activeWork = safeReadOps('ACTIVE_WORK.md');
+        const tasks = safeReadOps('TASKS.md');
+        const identity = safeReadOps('IDENTITY.md');
+
+        // SOUL line count
+        const soulLineCount = soul ? soul.split('\n').length : 0;
+        const soulStat = safeStatOps('SOUL.md');
+
+        // MEMORY size
+        const memoryStat = safeStatOps('MEMORY.md');
+        const memoryBytes = memoryStat ? memoryStat.size : 0;
+
+        // memory/ dir stats
+        let memoryFileCount = 0;
+        let memoryTotalBytes = 0;
+        const memDir = join(ws, 'memory');
+        if (existsSync(memDir)) {
+          try {
+            const files = readdirSync(memDir).filter(f => !f.startsWith('.'));
+            memoryFileCount = files.length;
+            for (const f of files) {
+              try { memoryTotalBytes += statSync(join(memDir, f)).size; } catch {}
+            }
+          } catch {}
+        }
+
+        // Cron count from collector
+        const liveState = collector.state.get(id) || {};
+        const lastActivity = liveState.lastSeen || liveState.updatedAt || null;
+        const cronCount = liveState.crons?.length || 0;
+        const model = liveState.model || agentConfig.model || 'unknown';
+
+        // Active work summary (first 3 lines)
+        let activeWorkSummary = null;
+        if (activeWork) {
+          activeWorkSummary = activeWork.split('\n').filter(l => l.trim()).slice(0, 3).join('\n');
+        }
+
+        // Build alerts
+        const alerts = [];
+        const now = Date.now();
+        const hourMs = 3600000;
+
+        if (soulLineCount > 60) {
+          alerts.push({ type: 'bloated', severity: 'warning', message: `SOUL.md is ${soulLineCount} lines (target: <60)` });
+        }
+        if (memoryBytes > 3000) {
+          alerts.push({ type: 'bloated', severity: 'warning', message: `MEMORY.md is ${(memoryBytes / 1024).toFixed(1)}KB (target: <3KB)` });
+        }
+        if (memoryTotalBytes > 50000) {
+          alerts.push({ type: 'bloated', severity: 'warning', message: `memory/ dir is ${(memoryTotalBytes / 1024).toFixed(0)}KB total` });
+        }
+        if (!heartbeat) {
+          alerts.push({ type: 'missing', severity: 'info', message: 'No HEARTBEAT.md' });
+        }
+        if (lastActivity) {
+          const idleHours = (now - new Date(lastActivity).getTime()) / hourMs;
+          if (idleHours > 48) {
+            alerts.push({ type: 'idle', severity: 'critical', message: `Idle ${Math.floor(idleHours)}h (>48h)` });
+          } else if (idleHours > 24) {
+            alerts.push({ type: 'idle', severity: 'warning', message: `Idle ${Math.floor(idleHours)}h (>24h)` });
+          }
+        }
+
+        // File health details
+        const fileHealth = {
+          'SOUL.md': { exists: !!soul, lines: soulLineCount, bytes: soulStat?.size || 0, modified: soulStat?.mtime?.toISOString() },
+          'MEMORY.md': { exists: !!memory, bytes: memoryBytes, modified: memoryStat?.mtime?.toISOString() },
+          'HEARTBEAT.md': { exists: !!heartbeat, bytes: heartbeat?.length || 0 },
+          'ACTIVE_WORK.md': { exists: !!activeWork, bytes: activeWork?.length || 0 },
+          'TASKS.md': { exists: !!tasks, bytes: tasks?.length || 0 },
+          'IDENTITY.md': { exists: !!identity, bytes: identity?.length || 0 },
+        };
+
+        return {
+          id, name: agentConfig.name, emoji: agentConfig.emoji,
+          model, lastActivity, activeWorkSummary, cronCount,
+          soulLineCount, memoryBytes, memoryTotalBytes, memoryFileCount,
+          alerts, fileHealth,
+          hasHeartbeat: !!heartbeat,
+          hasTasks: !!tasks,
+          hasActiveWork: !!activeWork,
+        };
+      });
+
+      // Global alert summary
+      const totalAlerts = agents.reduce((sum, a) => sum + a.alerts.length, 0);
+      const criticalAlerts = agents.reduce((sum, a) => sum + a.alerts.filter(al => al.severity === 'critical').length, 0);
+      const warningAlerts = agents.reduce((sum, a) => sum + a.alerts.filter(al => al.severity === 'warning').length, 0);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ agents, summary: { totalAlerts, criticalAlerts, warningAlerts } }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      console.error('[API] /api/operations error:', e.message);
+      res.end(JSON.stringify({ error: 'Failed to get operations data' }));
+    }
+    return;
+  }
+
   // ── Security Audit ──
   if (path === '/api/security-audit' && req.method === 'GET') {
     try {
@@ -1708,10 +1854,27 @@ const server = createServer((req, res) => {
         'AGENTS.md': readFile('AGENTS.md'),
         'USER.md': readFile('USER.md'),
         'TOOLS.md': readFile('TOOLS.md'),
+        'HEARTBEAT.md': readFile('HEARTBEAT.md'),
+        'MEMORY.md': readFile('MEMORY.md'),
+        'IDENTITY.md': readFile('IDENTITY.md'),
+        'ACTIVE_WORK.md': readFile('ACTIVE_WORK.md'),
+        'TASKS.md': readFile('TASKS.md'),
       };
 
+      // memory/ directory listing
+      let memoryDir = [];
+      const memDirPath = join(ws, 'memory');
+      if (existsSync(memDirPath)) {
+        try {
+          memoryDir = readdirSync(memDirPath).filter(f => !f.startsWith('.')).map(f => {
+            const st = statSync(join(memDirPath, f));
+            return { name: f, size: st.size, modified: st.mtime.toISOString() };
+          }).sort((a, b) => b.modified.localeCompare(a.modified));
+        } catch {}
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ model, skills: allSkills, files }));
+      res.end(JSON.stringify({ model, skills: allSkills, files, memoryDir }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       console.error('[API] /api/agents/:name/config GET error:', e.message);

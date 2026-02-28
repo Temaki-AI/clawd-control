@@ -40,7 +40,11 @@
                   ? 'crons'
                   : path === '/fleet.html'
                     ? 'fleet'
-                    : path.startsWith('/agent/')
+                    : path === '/operations.html'
+                      ? 'operations'
+                      : path === '/shared-context.html'
+                        ? 'shared-context'
+                        : path.startsWith('/agent/')
                       ? 'agent-detail'
                       : path === '/gandalf-view.html'
                         ? 'gandalf'
@@ -434,6 +438,16 @@ body.sidebar-collapsed .topbar { grid-column: 1 / -1; }
           Connecting…
         </div>
       </div>
+
+      <div class="sidebar-section">Operations</div>
+      <a href="/operations.html" class="nav-item${isActive('operations')}">
+        <i data-lucide="activity" class="nav-icon"></i>
+        <span class="nav-label">Fellowship Ops</span>
+      </a>
+      <a href="/shared-context.html" class="nav-item${isActive('shared-context')}">
+        <i data-lucide="book-open" class="nav-icon"></i>
+        <span class="nav-label">Shared Context</span>
+      </a>
 
       <div class="sidebar-section">Tools</div>
       <a href="/fleet.html" class="nav-item${isActive('fleet')}">
